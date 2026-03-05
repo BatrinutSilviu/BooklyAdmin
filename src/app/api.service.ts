@@ -8,7 +8,7 @@ import { Category, Language, Profile, AuthResponse } from './models';
 })
 export class ApiService {
   private http = inject(HttpClient);
-  private baseUrl = 'https://story-teller-batrinutsilvius-projects.vercel.app/api';
+  private baseUrl = 'http://localhost:3000/api';
 
   // Auth
   login(credentials: unknown): Observable<AuthResponse> {
