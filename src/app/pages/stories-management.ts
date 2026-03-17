@@ -1,10 +1,12 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../data.service';
+import { ApiService } from '../api.service';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Category } from '../models';
+import { Category, Language, Story } from '../models';
+import { switchMap, forkJoin, map, of } from 'rxjs';
 
 @Component({
   selector: 'app-stories-management',
@@ -85,6 +87,12 @@ import { Category } from '../models';
       <div class="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
         <div class="overflow-x-auto">
           @if (activeTab() === 'stories') {
+            @if (isLoadingStories()) {
+              <div class="flex items-center justify-center py-16 gap-3 text-slate-500">
+                <mat-icon class="animate-spin">autorenew</mat-icon>
+                <span class="text-sm">Loading stories...</span>
+              </div>
+            } @else {
             <table class="w-full text-left">
               <thead class="bg-slate-800/30 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
                 <tr>
@@ -101,7 +109,11 @@ import { Category } from '../models';
                     <td class="px-6 py-4">
                       <div class="flex items-center gap-4">
                         <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
-                          <img src="https://picsum.photos/seed/{{story.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Story Cover" />
+                          @if (story.photo_url) {
+                            <img [src]="story.photo_url" class="w-full h-full object-cover" alt="Story Cover" />
+                          } @else {
+                            <img src="https://picsum.photos/seed/{{story.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Story Cover" />
+                          }
                         </div>
                         <span class="text-sm font-bold">{{ story.title }}</span>
                       </div>
@@ -109,7 +121,7 @@ import { Category } from '../models';
                     <td class="px-6 py-4 text-sm text-slate-400">System</td>
                     <td class="px-6 py-4">
                       <span class="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase tracking-wider">
-                        {{ story.category_ids?.[0] || 'Uncategorized' }}
+                        {{ getCategoryLabel(story.category_ids?.[0]) }}
                       </span>
                     </td>
                     <td class="px-6 py-4">
@@ -126,8 +138,14 @@ import { Category } from '../models';
                     </td>
                   </tr>
                 }
+                @empty {
+                  <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-500 text-sm">No stories found.</td>
+                  </tr>
+                }
               </tbody>
             </table>
+            }
           } @else if (activeTab() === 'categories') {
             <table class="w-full text-left">
               <thead class="bg-slate-800/30 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
@@ -226,29 +244,30 @@ import { Category } from '../models';
             </button>
           </div>
 
-          <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()" class="p-8 space-y-8">
-            <!-- Title Translations -->
+          <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()" class="p-8 space-y-6">
+            @if (categoryError()) {
+              <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-sm">{{ categoryError() }}</div>
+            }
+
+            <!-- Language + Name -->
             <div class="space-y-4">
               <div class="flex items-center gap-2 text-primary text-[10px] font-bold uppercase tracking-widest">
                 <mat-icon class="!text-sm">translate</mat-icon>
-                Title Translations (Mandatory)
+                Category Name
               </div>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="space-y-2">
-                  <label for="title_en" class="text-xs font-bold text-slate-500">English Title *</label>
-                  <input id="title_en" formControlName="title_en" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="e.g. Science Fiction">
+                  <label class="text-xs font-bold text-slate-500">Language *</label>
+                  <select formControlName="language_id" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all">
+                    <option value="">Select Language</option>
+                    @for (lang of languages(); track lang.id) {
+                      <option [value]="lang.id">{{ lang.name }}</option>
+                    }
+                  </select>
                 </div>
                 <div class="space-y-2">
-                  <label for="title_es" class="text-xs font-bold text-slate-500">Spanish Title *</label>
-                  <input id="title_es" formControlName="title_es" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="e.g. Ciencia Ficción">
-                </div>
-                <div class="space-y-2">
-                  <label for="title_fr" class="text-xs font-bold text-slate-500">French Title *</label>
-                  <input id="title_fr" formControlName="title_fr" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="e.g. Science-fiction">
-                </div>
-                <div class="space-y-2">
-                  <label for="title_de" class="text-xs font-bold text-slate-500">German Title *</label>
-                  <input id="title_de" formControlName="title_de" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="e.g. Science-Fiction">
+                  <label class="text-xs font-bold text-slate-500">Name *</label>
+                  <input formControlName="name" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="e.g. Science Fiction">
                 </div>
               </div>
             </div>
@@ -257,38 +276,28 @@ import { Category } from '../models';
             <div class="space-y-4">
               <div class="flex items-center gap-2 text-primary text-[10px] font-bold uppercase tracking-widest">
                 <mat-icon class="!text-sm">image</mat-icon>
-                Cover Image
+                Cover Image {{ editingCategory() ? '(leave empty to keep current)' : '*' }}
               </div>
-              <div class="aspect-[3/1] bg-slate-950/50 border-2 border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-slate-800/30 transition-all group">
-                <div class="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-500 group-hover:text-primary transition-colors">
-                  <mat-icon>cloud_upload</mat-icon>
-                </div>
-                <div class="text-center">
-                  <p class="text-sm font-bold">Click to upload or drag and drop</p>
-                  <p class="text-[10px] text-slate-500 mt-1">Recommended size: 1200x400px (Max 5MB)</p>
-                </div>
-              </div>
-            </div>
-
-            <!-- Settings -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="space-y-2">
-                <label for="status" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Visibility Status</label>
-                <select id="status" formControlName="status" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all">
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </div>
-              <div class="space-y-2">
-                <label for="priority" class="text-xs font-bold text-slate-500 uppercase tracking-wider">Display Priority</label>
-                <input id="priority" type="number" formControlName="priority" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="0">
-              </div>
+              <label class="aspect-[3/1] bg-slate-950/50 border-2 border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-slate-800/30 transition-all group block overflow-hidden">
+                @if (categoryPhotoPreview()) {
+                  <img [src]="categoryPhotoPreview()" class="w-full h-full object-cover" alt="Category photo">
+                } @else {
+                  <div class="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-500 group-hover:text-primary transition-colors">
+                    <mat-icon>cloud_upload</mat-icon>
+                  </div>
+                  <div class="text-center">
+                    <p class="text-sm font-bold">Click to upload or drag and drop</p>
+                    <p class="text-[10px] text-slate-500 mt-1">Recommended size: 1200x400px (Max 5MB)</p>
+                  </div>
+                }
+                <input type="file" accept="image/*" class="hidden" (change)="onCategoryPhotoChange($event)">
+              </label>
             </div>
 
             <div class="flex justify-end gap-4 pt-4">
               <button type="button" (click)="closeCategoryModal()" class="px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
-              <button type="submit" [disabled]="categoryForm.invalid" class="px-8 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all">
-                Save Category
+              <button type="submit" [disabled]="categoryForm.invalid || isSavingCategory()" class="px-8 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all">
+                {{ isSavingCategory() ? 'Saving...' : 'Save Category' }}
               </button>
             </div>
           </form>
@@ -335,14 +344,21 @@ import { Category } from '../models';
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class StoriesManagementComponent {
+export class StoriesManagementComponent implements OnInit {
   data = inject(DataService);
+  private api = inject(ApiService);
   private fb = inject(FormBuilder);
-  
+
   activeTab = signal('stories');
+  isLoadingStories = signal(false);
   showCategoryModal = signal(false);
   editingCategory = signal<Category | null>(null);
-  
+  languages = signal<Language[]>([]);
+  isSavingCategory = signal(false);
+  categoryError = signal<string | null>(null);
+  categoryPhotoPreview = signal<string | null>(null);
+  private categoryPhotoFile: File | null = null;
+
   // Delete Modal State
   showDeleteModal = signal(false);
   itemToDelete = signal<{ id: string, type: 'story' | 'category' | 'series', name: string } | null>(null);
@@ -350,16 +366,61 @@ export class StoriesManagementComponent {
   series = computed(() => this.data.series());
 
   categoryForm = this.fb.group({
-    title_en: ['', Validators.required],
-    title_es: ['', Validators.required],
-    title_fr: ['', Validators.required],
-    title_de: ['', Validators.required],
-    status: ['Active' as 'Active' | 'Inactive'],
-    priority: [0]
+    language_id: ['', Validators.required],
+    name: ['', Validators.required],
   });
 
+  ngOnInit() {
+    this.api.getLanguages().subscribe(langs => this.languages.set(langs));
+    this.loadStories();
+  }
+
+  private loadStories() {
+    this.isLoadingStories.set(true);
+    this.api.getCategoriesByLanguage(1).pipe(
+      switchMap(categories => {
+        if (!categories.length) return of([]);
+        return forkJoin(categories.map(cat =>
+          this.api.getStoriesByCategory(cat.id, 1).pipe(
+            map(entries => ({ categoryId: cat.id, entries: entries as any[] }))
+          )
+        ));
+      }),
+      map(results => {
+        const seen = new Set<number>();
+        const stories: Story[] = [];
+        for (const { categoryId, entries } of results) {
+          for (const entry of entries) {
+            if (!seen.has(entry.story.id)) {
+              seen.add(entry.story.id);
+              stories.push({
+                id: entry.story.id,
+                title: entry.story.storyTranslations[0]?.title || 'Untitled',
+                photo_url: entry.story.photo_url,
+                category_ids: [categoryId],
+              });
+            }
+          }
+        }
+        return stories;
+      })
+    ).subscribe({
+      next: stories => {
+        this.data.stories.set(stories);
+        this.isLoadingStories.set(false);
+      },
+      error: () => this.isLoadingStories.set(false),
+    });
+  }
+
+  getCategoryLabel(categoryId?: number): string {
+    if (!categoryId) return 'Uncategorized';
+    const cat = this.data.getCategoryById(categoryId);
+    return cat ? this.getCategoryName(cat) : String(categoryId);
+  }
+
   getCategoryName(cat: Category): string {
-    return cat.categoryTranslations.find(t => t.language.id === 1)?.name || 
+    return cat.categoryTranslations.find(t => t.language.id === 1)?.name ||
            cat.categoryTranslations[0]?.name || 'Unnamed Category';
   }
 
@@ -369,20 +430,23 @@ export class StoriesManagementComponent {
 
   openCategoryModal() {
     this.editingCategory.set(null);
-    this.categoryForm.reset({ status: 'Active', priority: 0 });
+    this.categoryForm.reset();
+    this.categoryPhotoFile = null;
+    this.categoryPhotoPreview.set(null);
+    this.categoryError.set(null);
     this.showCategoryModal.set(true);
   }
 
   editCategory(cat: Category) {
     this.editingCategory.set(cat);
+    const firstTranslation = cat.categoryTranslations[0];
     this.categoryForm.patchValue({
-      title_en: this.getCategoryTranslation(cat, 1),
-      title_es: this.getCategoryTranslation(cat, 2),
-      title_fr: this.getCategoryTranslation(cat, 3),
-      title_de: this.getCategoryTranslation(cat, 4),
-      status: 'Active', // Mocked as spec doesn't have status in Category directly
-      priority: 0
+      language_id: firstTranslation ? String(firstTranslation.language.id) : '',
+      name: firstTranslation?.name || '',
     });
+    this.categoryPhotoFile = null;
+    this.categoryPhotoPreview.set(cat.photo_url || null);
+    this.categoryError.set(null);
     this.showCategoryModal.set(true);
   }
 
@@ -390,31 +454,53 @@ export class StoriesManagementComponent {
     this.showCategoryModal.set(false);
   }
 
-  saveCategory() {
-    if (this.categoryForm.valid) {
-      const formValue = this.categoryForm.value;
-      const categoryData: Category = {
-        id: 0,
-        created_at: new Date().toISOString(),
-        categoryTranslations: [
-          { id: 0, name: formValue.title_en || '', language: { id: 1, name: 'English', country_code: 'US' } },
-          { id: 0, name: formValue.title_es || '', language: { id: 2, name: 'Spanish', country_code: 'ES' } },
-          { id: 0, name: formValue.title_fr || '', language: { id: 3, name: 'French', country_code: 'FR' } },
-          { id: 0, name: formValue.title_de || '', language: { id: 4, name: 'German', country_code: 'DE' } }
-        ]
-      };
+  onCategoryPhotoChange(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    this.categoryPhotoFile = file;
+    const reader = new FileReader();
+    reader.onload = e => this.categoryPhotoPreview.set(e.target?.result as string);
+    reader.readAsDataURL(file);
+  }
 
-      const currentEditing = this.editingCategory();
-      if (currentEditing) {
-        categoryData.id = currentEditing.id;
-        this.data.updateCategory(categoryData);
-      } else {
-        categoryData.id = Math.floor(Math.random() * 1000);
-        this.data.addCategory(categoryData);
-      }
-      
-      this.closeCategoryModal();
+  saveCategory() {
+    if (this.categoryForm.invalid || this.isSavingCategory()) return;
+    const { language_id, name } = this.categoryForm.value;
+    const editing = this.editingCategory();
+
+    if (!editing && !this.categoryPhotoFile) {
+      this.categoryError.set('A cover image is required.');
+      return;
     }
+
+    const formData = new FormData();
+    formData.append('language_id', language_id!);
+    formData.append('name', name!);
+    if (this.categoryPhotoFile) formData.append('photo', this.categoryPhotoFile);
+
+    this.isSavingCategory.set(true);
+    this.categoryError.set(null);
+
+    const request = editing
+      ? this.api.updateCategory(editing.id, formData)
+      : this.api.createCategory(formData);
+
+    request.subscribe({
+      next: (saved) => {
+        const category = saved as Category;
+        if (editing) {
+          this.data.updateCategory(category);
+        } else {
+          this.data.addCategory(category);
+        }
+        this.isSavingCategory.set(false);
+        this.closeCategoryModal();
+      },
+      error: (err) => {
+        this.categoryError.set(err.error?.error || 'Failed to save category.');
+        this.isSavingCategory.set(false);
+      }
+    });
   }
 
   // Delete Logic

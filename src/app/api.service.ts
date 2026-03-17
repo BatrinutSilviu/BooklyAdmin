@@ -2,13 +2,14 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Category, Language, Profile, AuthResponse } from './models';
+import { environment } from '../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ApiService {
   private http = inject(HttpClient);
-  private baseUrl = 'https://story-teller-batrinutsilvius-projects.vercel.app/api';
+  private baseUrl = environment.apiUrl;
 
   // Auth
   login(credentials: unknown): Observable<AuthResponse> {
@@ -49,8 +50,8 @@ export class ApiService {
     return this.http.get<unknown>(`${this.baseUrl}/stories/${id}/languages/${languageId}?pages=${pages}`);
   }
 
-  createStory(storyData: unknown): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/stories`, storyData);
+  createStory(formData: FormData): Observable<unknown> {
+    return this.http.post(`${this.baseUrl}/stories`, formData);
   }
 
   // Languages
