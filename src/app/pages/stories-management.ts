@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Category, Language, Story } from '../models';
-import { switchMap, forkJoin, map, of } from 'rxjs';
+import { switchMap, forkJoin, map, of, catchError } from 'rxjs';
 
 @Component({
   selector: 'app-stories-management',
@@ -147,30 +147,43 @@ import { switchMap, forkJoin, map, of } from 'rxjs';
             </table>
             }
           } @else if (activeTab() === 'categories') {
+            @if (isLoadingCategories()) {
+              <div class="flex items-center justify-center py-16 gap-3 text-slate-500">
+                <mat-icon class="animate-spin">autorenew</mat-icon>
+                <span class="text-sm">Loading categories...</span>
+              </div>
+            } @else {
             <table class="w-full text-left">
               <thead class="bg-slate-800/30 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
                 <tr>
                   <th class="px-6 py-4">Category Name</th>
-                  <th class="px-6 py-4">Priority</th>
+                  <th class="px-6 py-4">Stories</th>
+                  <th class="px-6 py-4">Language</th>
                   <th class="px-6 py-4">Status</th>
                   <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800">
-                @for (cat of data.categories(); track cat.id) {
+                @for (row of categoryRows(); track row.translation.id) {
                   <tr class="hover:bg-slate-800/20 transition-colors group">
                     <td class="px-6 py-4">
                       <div class="flex items-center gap-4">
                         <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
-                          <img src="https://picsum.photos/seed/cat-{{cat.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Category Cover" />
+                          @if (row.cat.photo_url) {
+                            <img [src]="row.cat.photo_url" class="w-full h-full object-cover" alt="Category Cover" />
+                          } @else {
+                            <img src="https://picsum.photos/seed/cat-{{row.cat.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Category Cover" />
+                          }
                         </div>
-                        <div>
-                          <p class="text-sm font-bold">{{ getCategoryName(cat) }}</p>
-                          <p class="text-[10px] text-slate-500">{{ getCategoryTranslation(cat, 2) }}</p>
-                        </div>
+                        <p class="text-sm font-bold">{{ row.translation.name }}</p>
                       </div>
                     </td>
-                    <td class="px-6 py-4 text-sm text-slate-400">{{ cat._count?.storyCategories || 0 }}</td>
+                    <td class="px-6 py-4 text-sm text-slate-400">{{ row.cat._count?.storyCategories || 0 }}</td>
+                    <td class="px-6 py-4">
+                      <span class="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded uppercase tracking-wider">
+                        {{ row.translation.language.name }}
+                      </span>
+                    </td>
                     <td class="px-6 py-4">
                       <span class="px-2 py-1 bg-emerald-400/10 text-emerald-400 text-[10px] font-bold rounded uppercase tracking-wider">
                         Active
@@ -178,14 +191,20 @@ import { switchMap, forkJoin, map, of } from 'rxjs';
                     </td>
                     <td class="px-6 py-4 text-right">
                       <div class="flex justify-end gap-4">
-                        <button (click)="editCategory(cat)" class="text-xs font-bold text-primary hover:underline">Edit</button>
-                        <button (click)="requestDelete(cat.id, 'category', getCategoryName(cat))" class="text-xs font-bold text-rose-400 hover:underline">Delete</button>
+                        <button (click)="editCategory(row.cat)" class="text-xs font-bold text-primary hover:underline">Edit</button>
+                        <button (click)="requestDelete(row.cat.id, 'category', row.translation.name)" class="text-xs font-bold text-rose-400 hover:underline">Delete</button>
                       </div>
                     </td>
                   </tr>
                 }
+                @empty {
+                  <tr>
+                    <td colspan="5" class="px-6 py-12 text-center text-slate-500 text-sm">No categories found.</td>
+                  </tr>
+                }
               </tbody>
             </table>
+            }
           } @else if (activeTab() === 'series') {
             <table class="w-full text-left">
               <thead class="bg-slate-800/30 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
@@ -351,6 +370,7 @@ export class StoriesManagementComponent implements OnInit {
 
   activeTab = signal('stories');
   isLoadingStories = signal(false);
+  isLoadingCategories = signal(false);
   showCategoryModal = signal(false);
   editingCategory = signal<Category | null>(null);
   languages = signal<Language[]>([]);
@@ -365,6 +385,12 @@ export class StoriesManagementComponent implements OnInit {
 
   series = computed(() => this.data.series());
 
+  categoryRows = computed(() =>
+    this.data.categories().flatMap(cat =>
+      (cat.categoryTranslations ?? []).map(t => ({ cat, translation: t }))
+    )
+  );
+
   categoryForm = this.fb.group({
     language_id: ['', Validators.required],
     name: ['', Validators.required],
@@ -372,17 +398,21 @@ export class StoriesManagementComponent implements OnInit {
 
   ngOnInit() {
     this.api.getLanguages().subscribe(langs => this.languages.set(langs));
-    this.loadStories();
+    this.loadCategoriesAndStories();
   }
 
-  private loadStories() {
+  private loadCategoriesAndStories() {
     this.isLoadingStories.set(true);
-    this.api.getCategoriesByLanguage(1).pipe(
+    this.isLoadingCategories.set(true);
+    this.api.getCategories().pipe(
       switchMap(categories => {
+        this.data.categories.set(categories);
+        this.isLoadingCategories.set(false);
         if (!categories.length) return of([]);
         return forkJoin(categories.map(cat =>
           this.api.getStoriesByCategory(cat.id, 1).pipe(
-            map(entries => ({ categoryId: cat.id, entries: entries as any[] }))
+            map(entries => ({ categoryId: cat.id, entries: entries as any[] })),
+            catchError(() => of({ categoryId: cat.id, entries: [] }))
           )
         ));
       }),
@@ -409,7 +439,10 @@ export class StoriesManagementComponent implements OnInit {
         this.data.stories.set(stories);
         this.isLoadingStories.set(false);
       },
-      error: () => this.isLoadingStories.set(false),
+      error: () => {
+        this.isLoadingStories.set(false);
+        this.isLoadingCategories.set(false);
+      },
     });
   }
 
@@ -420,12 +453,12 @@ export class StoriesManagementComponent implements OnInit {
   }
 
   getCategoryName(cat: Category): string {
-    return cat.categoryTranslations.find(t => t.language.id === 1)?.name ||
-           cat.categoryTranslations[0]?.name || 'Unnamed Category';
+    return cat.categoryTranslations?.find(t => t.language.id === 1)?.name ||
+           cat.categoryTranslations?.[0]?.name || 'Unnamed Category';
   }
 
   getCategoryTranslation(cat: Category, langId: number): string {
-    return cat.categoryTranslations.find(t => t.language.id === langId)?.name || '';
+    return cat.categoryTranslations?.find(t => t.language.id === langId)?.name || '';
   }
 
   openCategoryModal() {
@@ -439,7 +472,7 @@ export class StoriesManagementComponent implements OnInit {
 
   editCategory(cat: Category) {
     this.editingCategory.set(cat);
-    const firstTranslation = cat.categoryTranslations[0];
+    const firstTranslation = cat.categoryTranslations?.[0];
     this.categoryForm.patchValue({
       language_id: firstTranslation ? String(firstTranslation.language.id) : '',
       name: firstTranslation?.name || '',

@@ -21,6 +21,10 @@ export class ApiService {
   }
 
   // Categories
+  getCategories(): Observable<Category[]> {
+    return this.http.get<Category[]>(`${this.baseUrl}/categories`);
+  }
+
   getCategoriesByLanguage(languageId: number): Observable<Category[]> {
     return this.http.get<Category[]>(`${this.baseUrl}/categories/languages/${languageId}`);
   }
