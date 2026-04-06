@@ -44,6 +44,13 @@ export interface StoryPage {
   text_content: string;
 }
 
+export interface StoryTranslation {
+  id: number;
+  title: string;
+  description?: string | null;
+  language: Language;
+}
+
 export interface Story {
   id: number;
   title: string;
@@ -53,6 +60,7 @@ export interface Story {
   category_ids?: number[];
   language?: Language;
   storyPages?: StoryPage[];
+  storyTranslations?: StoryTranslation[];
 }
 
 export interface Series {

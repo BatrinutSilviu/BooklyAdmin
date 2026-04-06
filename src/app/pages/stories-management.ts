@@ -5,8 +5,8 @@ import { ApiService } from '../api.service';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Category, Language, Story } from '../models';
-import { switchMap, forkJoin, map, of, catchError } from 'rxjs';
+import { Category, Language, Story, StoryTranslation } from '../models';
+import { forkJoin, map, catchError, of } from 'rxjs';
 
 @Component({
   selector: 'app-stories-management',
@@ -96,8 +96,8 @@ import { switchMap, forkJoin, map, of, catchError } from 'rxjs';
             <table class="w-full text-left">
               <thead class="bg-slate-800/30 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
                 <tr>
-                  <th class="px-6 py-4">Title</th>
-                  <th class="px-6 py-4">Author</th>
+                  <th class="px-6 py-4">Cover</th>
+                  <th class="px-6 py-4">Translations</th>
                   <th class="px-6 py-4">Category</th>
                   <th class="px-6 py-4">Status</th>
                   <th class="px-6 py-4 text-right">Actions</th>
@@ -105,20 +105,31 @@ import { switchMap, forkJoin, map, of, catchError } from 'rxjs';
               </thead>
               <tbody class="divide-y divide-slate-800">
                 @for (story of data.stories(); track story.id) {
-                  <tr class="hover:bg-slate-800/20 transition-colors group">
+                  <tr class="hover:bg-slate-800/20 transition-colors group align-top">
                     <td class="px-6 py-4">
-                      <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
-                          @if (story.photo_url) {
-                            <img [src]="story.photo_url" class="w-full h-full object-cover" alt="Story Cover" />
-                          } @else {
-                            <img src="https://picsum.photos/seed/{{story.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Story Cover" />
-                          }
-                        </div>
-                        <span class="text-sm font-bold">{{ story.title }}</span>
+                      <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
+                        @if (story.photo_url) {
+                          <img [src]="story.photo_url" class="w-full h-full object-cover" alt="Story Cover" />
+                        } @else {
+                          <img src="https://picsum.photos/seed/{{story.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Story Cover" />
+                        }
                       </div>
                     </td>
-                    <td class="px-6 py-4 text-sm text-slate-400">System</td>
+                    <td class="px-6 py-4">
+                      <div class="flex flex-col gap-1.5">
+                        @for (t of (story.storyTranslations ?? []); track t.id) {
+                          <div class="flex items-center gap-2">
+                            <span class="px-1.5 py-0.5 bg-slate-800 text-slate-400 text-[9px] font-bold rounded uppercase tracking-wider flex-shrink-0">
+                              {{ t.language.country_code }}
+                            </span>
+                            <span class="text-sm font-bold">{{ t.title }}</span>
+                          </div>
+                        }
+                        @empty {
+                          <span class="text-sm text-slate-500 italic">Untitled</span>
+                        }
+                      </div>
+                    </td>
                     <td class="px-6 py-4">
                       <span class="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase tracking-wider">
                         {{ getCategoryLabel(story.category_ids?.[0]) }}
@@ -156,34 +167,41 @@ import { switchMap, forkJoin, map, of, catchError } from 'rxjs';
             <table class="w-full text-left">
               <thead class="bg-slate-800/30 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
                 <tr>
-                  <th class="px-6 py-4">Category Name</th>
+                  <th class="px-6 py-4">Cover</th>
+                  <th class="px-6 py-4">Translations</th>
                   <th class="px-6 py-4">Stories</th>
-                  <th class="px-6 py-4">Language</th>
                   <th class="px-6 py-4">Status</th>
                   <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800">
-                @for (row of categoryRows(); track row.translation.id) {
-                  <tr class="hover:bg-slate-800/20 transition-colors group">
+                @for (cat of data.categories(); track cat.id) {
+                  <tr class="hover:bg-slate-800/20 transition-colors group align-top">
                     <td class="px-6 py-4">
-                      <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
-                          @if (row.cat.photo_url) {
-                            <img [src]="row.cat.photo_url" class="w-full h-full object-cover" alt="Category Cover" />
-                          } @else {
-                            <img src="https://picsum.photos/seed/cat-{{row.cat.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Category Cover" />
-                          }
-                        </div>
-                        <p class="text-sm font-bold">{{ row.translation.name }}</p>
+                      <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
+                        @if (cat.photo_url) {
+                          <img [src]="cat.photo_url" class="w-full h-full object-cover" alt="Category Cover" />
+                        } @else {
+                          <img src="https://picsum.photos/seed/cat-{{cat.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Category Cover" />
+                        }
                       </div>
                     </td>
-                    <td class="px-6 py-4 text-sm text-slate-400">{{ row.cat._count?.storyCategories || 0 }}</td>
                     <td class="px-6 py-4">
-                      <span class="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded uppercase tracking-wider">
-                        {{ row.translation.language.name }}
-                      </span>
+                      <div class="flex flex-col gap-1.5">
+                        @for (t of (cat.categoryTranslations ?? []); track t.id) {
+                          <div class="flex items-center gap-2">
+                            <span class="px-1.5 py-0.5 bg-slate-800 text-slate-400 text-[9px] font-bold rounded uppercase tracking-wider flex-shrink-0">
+                              {{ t.language.country_code }}
+                            </span>
+                            <span class="text-sm font-bold">{{ t.name }}</span>
+                          </div>
+                        }
+                        @empty {
+                          <span class="text-sm text-slate-500 italic">No translations</span>
+                        }
+                      </div>
                     </td>
+                    <td class="px-6 py-4 text-sm text-slate-400">{{ cat._count?.storyCategories || 0 }}</td>
                     <td class="px-6 py-4">
                       <span class="px-2 py-1 bg-emerald-400/10 text-emerald-400 text-[10px] font-bold rounded uppercase tracking-wider">
                         Active
@@ -191,8 +209,8 @@ import { switchMap, forkJoin, map, of, catchError } from 'rxjs';
                     </td>
                     <td class="px-6 py-4 text-right">
                       <div class="flex justify-end gap-4">
-                        <button (click)="editCategory(row.cat)" class="text-xs font-bold text-primary hover:underline">Edit</button>
-                        <button (click)="requestDelete(row.cat.id, 'category', row.translation.name)" class="text-xs font-bold text-rose-400 hover:underline">Delete</button>
+                        <button (click)="editCategory(cat)" class="text-xs font-bold text-primary hover:underline">Edit</button>
+                        <button (click)="requestDelete(cat.id, 'category', cat.categoryTranslations?.[0]?.name || 'Category')" class="text-xs font-bold text-rose-400 hover:underline">Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -385,11 +403,6 @@ export class StoriesManagementComponent implements OnInit {
 
   series = computed(() => this.data.series());
 
-  categoryRows = computed(() =>
-    this.data.categories().flatMap(cat =>
-      (cat.categoryTranslations ?? []).map(t => ({ cat, translation: t }))
-    )
-  );
 
   categoryForm = this.fb.group({
     language_id: ['', Validators.required],
@@ -404,35 +417,30 @@ export class StoriesManagementComponent implements OnInit {
   private loadCategoriesAndStories() {
     this.isLoadingStories.set(true);
     this.isLoadingCategories.set(true);
-    this.api.getCategories().pipe(
-      switchMap(categories => {
+
+    forkJoin({
+      categories: this.api.getCategories().pipe(catchError(() => of([]))),
+      stories: this.api.getAllStories().pipe(catchError(() => of([]))),
+    }).pipe(
+      map(({ categories, stories }) => {
         this.data.categories.set(categories);
         this.isLoadingCategories.set(false);
-        if (!categories.length) return of([]);
-        return forkJoin(categories.map(cat =>
-          this.api.getStoriesByCategory(cat.id, 1).pipe(
-            map(entries => ({ categoryId: cat.id, entries: entries as any[] })),
-            catchError(() => of({ categoryId: cat.id, entries: [] }))
-          )
-        ));
-      }),
-      map(results => {
-        const seen = new Set<number>();
-        const stories: Story[] = [];
-        for (const { categoryId, entries } of results) {
-          for (const entry of entries) {
-            if (!seen.has(entry.story.id)) {
-              seen.add(entry.story.id);
-              stories.push({
-                id: entry.story.id,
-                title: entry.story.storyTranslations[0]?.title || 'Untitled',
-                photo_url: entry.story.photo_url,
-                category_ids: [categoryId],
-              });
-            }
-          }
-        }
-        return stories;
+
+        const mapped: Story[] = (stories as any[]).map(story => {
+          const translations: StoryTranslation[] = story.storyTranslations ?? [];
+          const categoryIds: number[] = (story.storyCategories ?? []).map((sc: any) => sc.category?.id ?? sc.category_id);
+          return {
+            id: story.id,
+            title: translations[0]?.title || 'Untitled',
+            photo_url: story.photo_url,
+            audio_url: story.audio_url,
+            story_series_id: story.story_series_id,
+            category_ids: categoryIds.filter(Boolean),
+            storyTranslations: translations,
+          } as Story;
+        });
+
+        return mapped;
       })
     ).subscribe({
       next: stories => {

@@ -46,6 +46,10 @@ export class ApiService {
   }
 
   // Stories
+  getAllStories(): Observable<unknown[]> {
+    return this.http.get<unknown[]>(`${this.baseUrl}/stories`);
+  }
+
   getStoriesByCategory(categoryId: number, languageId: number): Observable<unknown[]> {
     return this.http.get<unknown[]>(`${this.baseUrl}/stories/categories/${categoryId}/languages/${languageId}`);
   }
