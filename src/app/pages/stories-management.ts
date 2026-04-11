@@ -361,17 +361,23 @@ import { forkJoin, map, catchError, of } from 'rxjs';
               </p>
             </div>
 
+            @if (deleteError()) {
+              <div class="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-sm">{{ deleteError() }}</div>
+            }
+
             <div class="flex flex-col gap-3 pt-4">
-              <button 
-                (click)="confirmDelete()" 
-                class="w-full py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-2xl shadow-lg shadow-rose-500/20 transition-all flex items-center justify-center gap-2"
+              <button
+                (click)="confirmDelete()"
+                [disabled]="isDeleting()"
+                class="w-full py-3.5 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-lg shadow-rose-500/20 transition-all flex items-center justify-center gap-2"
               >
-                <mat-icon class="!text-lg">delete</mat-icon>
-                Delete Permanently
+                <mat-icon class="!text-lg">{{ isDeleting() ? 'autorenew' : 'delete' }}</mat-icon>
+                {{ isDeleting() ? 'Deleting...' : 'Delete Permanently' }}
               </button>
-              <button 
-                (click)="closeDeleteModal()" 
-                class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl transition-all"
+              <button
+                (click)="closeDeleteModal()"
+                [disabled]="isDeleting()"
+                class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 font-bold rounded-2xl transition-all"
               >
                 Keep it for now
               </button>
@@ -429,7 +435,13 @@ export class StoriesManagementComponent implements OnInit {
         this.isLoadingCategories.set(false);
 
         const mapped: Story[] = (stories as any[]).map(story => {
-          const translations: StoryTranslation[] = story.storyTranslations ?? [];
+          const translations: StoryTranslation[] = (story.storyTranslations ?? []).map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            language: t.language,
+            storyPages: t.storyPages ?? [],
+          }));
           const categoryIds: number[] = (story.storyCategories ?? []).map((sc: any) => sc.category?.id ?? sc.category_id);
           return {
             id: story.id,
@@ -546,27 +558,51 @@ export class StoriesManagementComponent implements OnInit {
     });
   }
 
+  isDeleting = signal(false);
+  deleteError = signal<string | null>(null);
+
   // Delete Logic
   requestDelete(id: number, type: 'story' | 'category' | 'series', name: string) {
     this.itemToDelete.set({ id: id.toString(), type, name });
+    this.deleteError.set(null);
     this.showDeleteModal.set(true);
   }
 
   closeDeleteModal() {
     this.showDeleteModal.set(false);
     this.itemToDelete.set(null);
+    this.deleteError.set(null);
   }
 
   confirmDelete() {
     const item = this.itemToDelete();
-    if (item) {
-      const id = parseInt(item.id);
-      if (item.type === 'story') this.data.deleteStory(id);
-      else if (item.type === 'category') this.data.deleteCategory(id);
-      else if (item.type === 'series') this.data.deleteSeries(id);
-      
-      this.closeDeleteModal();
-    }
+    if (!item || this.isDeleting()) return;
+
+    const id = parseInt(item.id);
+    this.isDeleting.set(true);
+    this.deleteError.set(null);
+
+    let request$;
+    if (item.type === 'story') request$ = this.api.deleteStory(id);
+    else if (item.type === 'category') request$ = this.api.deleteCategory(id);
+    else { this.data.deleteSeries(id); this.closeDeleteModal(); this.isDeleting.set(false); return; }
+
+    request$.subscribe({
+      next: () => {
+        if (item.type === 'story') this.data.deleteStory(id);
+        else if (item.type === 'category') this.data.deleteCategory(id);
+        this.isDeleting.set(false);
+        this.closeDeleteModal();
+      },
+      error: (err) => {
+        const msg = err.error?.error || `Failed to delete ${item.type}.`;
+        const details = err.error?.details;
+        this.deleteError.set(details
+          ? `${msg} It is used by ${details.stories ?? 0} story/stories and ${details.profiles ?? 0} profile(s).`
+          : msg);
+        this.isDeleting.set(false);
+      }
+    });
   }
 }
 

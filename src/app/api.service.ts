@@ -69,6 +69,14 @@ export class ApiService {
     return this.http.post(`${this.baseUrl}/stories`, formData);
   }
 
+  updateStory(id: number, formData: FormData): Observable<unknown> {
+    return this.http.put(`${this.baseUrl}/stories/${id}`, formData);
+  }
+
+  deleteStory(id: number): Observable<unknown> {
+    return this.http.delete(`${this.baseUrl}/stories/${id}`);
+  }
+
   // Languages
   getLanguages(): Observable<Language[]> {
     return this.http.get<Language[]>(`${this.baseUrl}/languages`);

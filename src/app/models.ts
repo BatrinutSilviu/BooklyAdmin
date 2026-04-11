@@ -49,6 +49,7 @@ export interface StoryTranslation {
   title: string;
   description?: string | null;
   language: Language;
+  storyPages?: StoryPage[];
 }
 
 export interface Story {

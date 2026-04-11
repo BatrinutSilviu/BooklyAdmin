@@ -2,10 +2,10 @@ import { Component, ChangeDetectionStrategy, inject, OnInit, signal } from '@ang
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators, FormArray } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
-import { RouterLink, Router } from '@angular/router';
+import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { ApiService } from '../api.service';
 import { DataService } from '../data.service';
-import { Language } from '../models';
+import { Language, Story } from '../models';
 
 @Component({
   selector: 'app-create-story',
@@ -19,12 +19,12 @@ import { Language } from '../models';
             <mat-icon>arrow_back</mat-icon>
           </button>
           <div>
-            <h1 class="text-3xl font-bold tracking-tight">Create New Story</h1>
-            <p class="text-slate-400 mt-1">Fill in the details below to publish a new story.</p>
+            <h1 class="text-3xl font-bold tracking-tight">{{ editStoryId() ? 'Edit Story' : 'Create New Story' }}</h1>
+            <p class="text-slate-400 mt-1">{{ editStoryId() ? 'Update the story details below.' : 'Fill in the details below to publish a new story.' }}</p>
           </div>
         </div>
         <button (click)="submit()" [disabled]="isSubmitting()" class="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ isSubmitting() ? 'Publishing...' : 'Publish Story' }}
+          {{ isSubmitting() ? (editStoryId() ? 'Saving...' : 'Publishing...') : (editStoryId() ? 'Save Changes' : 'Publish Story') }}
         </button>
       </div>
 
@@ -155,6 +155,7 @@ import { Language } from '../models';
 export class CreateStoryComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
   private api = inject(ApiService);
   data = inject(DataService);
 
@@ -164,6 +165,7 @@ export class CreateStoryComponent implements OnInit {
   coverPhotoPreview = signal<string | null>(null);
   pagePhotoFiles = signal<(File | null)[]>([]);
   pagePhotoPreviews = signal<(string | null)[]>([]);
+  editStoryId = signal<number | null>(null);
 
   private coverPhotoFile: File | null = null;
 
@@ -187,7 +189,44 @@ export class CreateStoryComponent implements OnInit {
 
   ngOnInit() {
     this.api.getLanguages().subscribe(langs => this.languages.set(langs));
-    this.addPage();
+
+    const idParam = this.route.snapshot.paramMap.get('id');
+    if (idParam) {
+      const storyId = parseInt(idParam, 10);
+      this.editStoryId.set(storyId);
+      this.prefillForm(storyId);
+    } else {
+      this.addPage();
+    }
+  }
+
+  private prefillForm(storyId: number) {
+    const story = this.data.getStoryById(storyId);
+    if (!story) { this.addPage(); return; }
+
+    const firstTranslation = story.storyTranslations?.[0];
+    this.storyForm.patchValue({
+      language_id: firstTranslation ? String(firstTranslation.language.id) : '',
+      title: firstTranslation?.title || '',
+      description: firstTranslation?.description || '',
+      category: story.category_ids?.[0] ? String(story.category_ids[0]) : '',
+    });
+
+    if (story.photo_url) {
+      this.coverPhotoPreview.set(story.photo_url);
+    }
+
+    // Pre-fill pages from the story's first translation
+    const pages = (firstTranslation as any)?.storyPages ?? [];
+    if (pages.length > 0) {
+      pages.forEach((p: any) => {
+        this.pages.push(this.fb.group({ text_content: [p.text_content, Validators.required] }));
+        this.pagePhotoFiles.update(a => [...a, null]);
+        this.pagePhotoPreviews.update(a => [...a, p.photo_url || null]);
+      });
+    } else {
+      this.addPage();
+    }
   }
 
   addPage() {
@@ -245,10 +284,26 @@ export class CreateStoryComponent implements OnInit {
       if (file) formData.append(`page_photo_${i + 1}`, file);
     });
 
-    this.api.createStory(formData).subscribe({
-      next: () => this.router.navigate(['/stories']),
+    const editId = this.editStoryId();
+    const request$ = editId
+      ? this.api.updateStory(editId, formData)
+      : this.api.createStory(formData);
+
+    request$.subscribe({
+      next: (saved) => {
+        if (editId) {
+          const story = saved as Story;
+          const mapped = {
+            ...story,
+            category_ids: (story as any).storyCategories?.map((sc: any) => sc.category?.id ?? sc.category_id) ?? [],
+            storyTranslations: (story as any).storyTranslations ?? [],
+          } as Story;
+          this.data.updateStory(mapped);
+        }
+        this.router.navigate(['/stories']);
+      },
       error: (err) => {
-        this.error.set(err.error?.error || 'Failed to create story. Please try again.');
+        this.error.set(err.error?.error || `Failed to ${editId ? 'update' : 'create'} story. Please try again.`);
         this.isSubmitting.set(false);
       }
     });
