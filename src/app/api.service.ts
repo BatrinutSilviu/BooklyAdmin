@@ -20,6 +20,13 @@ export class ApiService {
     return this.http.post(`${this.baseUrl}/auth/signup`, userData);
   }
 
+  refreshToken(refreshToken: string): Observable<{ access_token: string; refresh_token: string; expires_in: number }> {
+    return this.http.post<{ access_token: string; refresh_token: string; expires_in: number }>(
+      `${this.baseUrl}/auth/refresh`,
+      { refresh_token: refreshToken }
+    );
+  }
+
   // Categories
   getCategories(): Observable<Category[]> {
     return this.http.get<Category[]>(`${this.baseUrl}/categories`);

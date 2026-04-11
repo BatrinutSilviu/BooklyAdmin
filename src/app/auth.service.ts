@@ -11,6 +11,7 @@ export interface AuthUser {
   role: string;
   avatar: string;
   token?: string;
+  refreshToken?: string;
 }
 
 @Injectable({
@@ -46,12 +47,31 @@ export class AuthService {
     }
   }
 
+  refreshAccessToken() {
+    const user = this.currentUser();
+    if (!user?.refreshToken) return of(null);
+
+    return this.api.refreshToken(user.refreshToken).pipe(
+      tap(session => {
+        const updated: AuthUser = { ...user, token: session.access_token, refreshToken: session.refresh_token };
+        this.currentUser.set(updated);
+        this.saveToStorage(updated);
+      }),
+      catchError(() => {
+        this.logout();
+        return of(null);
+      })
+    );
+  }
+
   login(credentials: unknown) {
     return this.api.login(credentials).pipe(
       switchMap(response => {
         const user = response.user;
         const token = response.session.access_token;
         
+        const refreshToken = response.session.refresh_token;
+
         // After login, try to fetch profiles for this user
         return this.api.getUserProfiles(user.id).pipe(
           tap(profiles => {
@@ -62,7 +82,8 @@ export class AuthService {
               email: user.email,
               role: 'Super Admin', // Default role for admin panel
               avatar: profile?.photo_url || `https://i.pravatar.cc/150?u=${user.id}`,
-              token: token
+              token: token,
+              refreshToken: refreshToken
             };
 
             this.isAuthenticated.set(true);
@@ -78,7 +99,8 @@ export class AuthService {
               email: user.email,
               role: 'Super Admin',
               avatar: `https://i.pravatar.cc/150?u=${user.id}`,
-              token: token
+              token: token,
+              refreshToken: refreshToken
             };
             this.isAuthenticated.set(true);
             this.currentUser.set(authUser);
