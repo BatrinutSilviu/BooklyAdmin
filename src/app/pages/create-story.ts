@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, inject, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, FormArray } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, FormControl, Validators, FormArray } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { ApiService } from '../api.service';
@@ -35,24 +35,25 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
       }
 
       <form [formGroup]="storyForm" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Main column: translations -->
+        <!-- Main column -->
         <div class="lg:col-span-2 space-y-6">
-          <section class="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
 
-            <!-- Language tab bar -->
+          <!-- Translation tabs: language / title / description -->
+          <section class="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
+            <!-- Tab bar -->
             <div class="flex items-center gap-1 border-b border-slate-800 px-4 overflow-x-auto">
-              @for (t of translations.controls; track $index; let i = $index) {
-                <button type="button" (click)="activeTab.set(i)"
+              @for (tCtrl of translations.controls; track $index; let ti = $index) {
+                <button type="button" (click)="activeTab.set(ti)"
                   class="flex items-center gap-1.5 px-4 py-4 text-sm font-bold border-b-2 transition-all whitespace-nowrap flex-shrink-0"
-                  [class.text-primary]="activeTab() === i"
-                  [class.border-primary]="activeTab() === i"
-                  [class.border-transparent]="activeTab() !== i"
-                  [class.text-slate-400]="activeTab() !== i">
+                  [class.text-primary]="activeTab() === ti"
+                  [class.border-primary]="activeTab() === ti"
+                  [class.border-transparent]="activeTab() !== ti"
+                  [class.text-slate-400]="activeTab() !== ti">
                   <mat-icon class="!text-base">translate</mat-icon>
-                  {{ getTabLabel(i) }}
+                  {{ getTabLabel(ti) }}
                   @if (translations.length > 1) {
-                    <span (click)="$event.stopPropagation(); removeTranslation(i)"
-                      class="w-4 h-4 flex items-center justify-center rounded-full text-slate-500 hover:bg-rose-500 hover:text-white transition-colors text-xs leading-none">
+                    <span (click)="$event.stopPropagation(); removeTranslation(ti)"
+                      class="w-4 h-4 flex items-center justify-center rounded-full text-slate-500 hover:bg-rose-500 hover:text-white transition-colors text-xs leading-none ml-1">
                       ✕
                     </span>
                   }
@@ -65,12 +66,10 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
               </button>
             </div>
 
-            <!-- Translation content (all in DOM, toggled with hidden) -->
+            <!-- Per-translation fields (language, title, description) -->
             <div formArrayName="translations">
               @for (tCtrl of translations.controls; track $index; let ti = $index) {
-                <div [formGroupName]="ti" [hidden]="activeTab() !== ti" class="p-8 space-y-6">
-
-                  <!-- Language + Title + Description -->
+                <div [formGroupName]="ti" [hidden]="activeTab() !== ti" class="p-8 space-y-5">
                   <div class="space-y-2">
                     <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Language</label>
                     <select formControlName="language_id"
@@ -81,68 +80,76 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
                       }
                     </select>
                   </div>
-
                   <div class="space-y-2">
                     <label class="text-sm font-bold text-slate-400 uppercase tracking-wider">Story Title</label>
                     <input formControlName="title"
                       class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                       placeholder="Enter story title">
                   </div>
-
                   <div class="space-y-2">
                     <label class="text-sm font-bold text-slate-400 uppercase tracking-wider">Description</label>
                     <textarea formControlName="description" rows="3"
                       class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
                       placeholder="Enter story description"></textarea>
                   </div>
+                </div>
+              }
+            </div>
+          </section>
 
-                  <!-- Pages -->
-                  <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                      <h3 class="text-base font-bold flex items-center gap-2">
-                        <mat-icon class="text-primary">auto_stories</mat-icon>
-                        Pages
-                      </h3>
-                      <button (click)="addPage(ti)" type="button"
-                        class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                        <mat-icon class="!text-sm">add</mat-icon>
-                        Add Page
-                      </button>
+          <!-- Pages section — shared photos, per-language text -->
+          <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-8 space-y-6">
+            <div class="flex justify-between items-center">
+              <h3 class="text-xl font-bold flex items-center gap-2">
+                <mat-icon class="text-primary">auto_stories</mat-icon>
+                Story Pages
+              </h3>
+              <button (click)="addPage()" type="button"
+                class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                <mat-icon class="!text-sm">add</mat-icon>
+                Add Page
+              </button>
+            </div>
+
+            @if (pagePhotoPreviews().length === 0) {
+              <p class="text-sm text-slate-500 italic">No pages yet. Click "Add Page" to start.</p>
+            }
+
+            <div class="space-y-6">
+              @for (preview of pagePhotoPreviews(); track $index; let pi = $index) {
+                <div class="p-6 bg-slate-950/30 border border-slate-800 rounded-xl relative group">
+                  <button (click)="removePage(pi)" type="button"
+                    class="absolute -top-3 -right-3 w-8 h-8 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all">
+                    <mat-icon class="!text-sm">close</mat-icon>
+                  </button>
+
+                  <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Page {{ pi + 1 }}</p>
+
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Shared photo -->
+                    <div class="space-y-2">
+                      <span class="text-xs text-slate-500">Photo <span class="text-slate-600">(shared across languages)</span></span>
+                      <label class="aspect-square bg-slate-900 rounded-xl border-2 border-dashed border-slate-800 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-slate-800/50 transition-all overflow-hidden block">
+                        @if (preview) {
+                          <img [src]="preview" class="w-full h-full object-cover" alt="Page photo">
+                        } @else {
+                          <mat-icon class="text-slate-600">add_a_photo</mat-icon>
+                          <span class="text-[10px] font-bold text-slate-500">Upload Image</span>
+                        }
+                        <input type="file" accept="image/*" class="hidden" (change)="onPagePhotoChange($event, pi)">
+                      </label>
                     </div>
 
-                    <div formArrayName="pages" class="space-y-6">
-                      @for (pCtrl of getPages(ti).controls; track $index; let pi = $index) {
-                        <div [formGroupName]="pi" class="p-6 bg-slate-950/30 border border-slate-800 rounded-xl relative group">
-                          <button (click)="removePage(ti, pi)" type="button"
-                            class="absolute -top-3 -right-3 w-8 h-8 bg-rose-500 text-white rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all">
-                            <mat-icon class="!text-sm">close</mat-icon>
-                          </button>
-
-                          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div class="space-y-2">
-                              <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Page {{ pi + 1 }} Image</span>
-                              <label class="aspect-square bg-slate-900 rounded-xl border-2 border-dashed border-slate-800 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-slate-800/50 transition-all overflow-hidden block">
-                                @if (getPagePreview(ti, pi)) {
-                                  <img [src]="getPagePreview(ti, pi)" class="w-full h-full object-cover" alt="Page photo">
-                                } @else {
-                                  <mat-icon class="text-slate-600">add_a_photo</mat-icon>
-                                  <span class="text-[10px] font-bold text-slate-500">Upload Image</span>
-                                }
-                                <input type="file" accept="image/*" class="hidden" (change)="onPagePhotoChange($event, ti, pi)">
-                              </label>
-                            </div>
-                            <div class="md:col-span-2 space-y-2">
-                              <span class="text-xs font-bold text-slate-500">Page Text</span>
-                              <textarea formControlName="text_content" rows="8"
-                                class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                                placeholder="Enter page text"></textarea>
-                            </div>
-                          </div>
-                        </div>
-                      }
+                    <!-- Per-language text (bound to active translation) -->
+                    <div class="md:col-span-2 space-y-2">
+                      <span class="text-xs text-slate-500">Text <span class="text-slate-600">(for {{ getTabLabel(activeTab()) }})</span></span>
+                      <textarea
+                        [formControl]="getPageTextControl(activeTab(), pi)"
+                        rows="9"
+                        class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                        placeholder="Enter page text"></textarea>
                     </div>
                   </div>
-
                 </div>
               }
             </div>
@@ -151,7 +158,6 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
 
         <!-- Sidebar -->
         <div class="space-y-8">
-          <!-- Cover Image -->
           <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4">
             <h3 class="font-bold">Cover Image</h3>
             <label class="aspect-[3/4] bg-slate-900 rounded-xl border-2 border-dashed border-slate-800 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-slate-800/50 transition-all group block overflow-hidden">
@@ -170,7 +176,6 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
             </label>
           </section>
 
-          <!-- Categories -->
           <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4">
             <h3 class="font-bold">Categories</h3>
             <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
@@ -204,9 +209,9 @@ export class CreateStoryComponent implements OnInit {
   isSubmitting = signal(false);
   error = signal<string | null>(null);
   coverPhotoPreview = signal<string | null>(null);
-  // pagePhotoFiles[translationIdx][pageIdx]
-  pagePhotoFiles = signal<(File | null)[][]>([]);
-  pagePhotoPreviews = signal<(string | null)[][]>([]);
+  // Shared across all translations — one entry per page
+  pagePhotoFiles = signal<(File | null)[]>([]);
+  pagePhotoPreviews = signal<(string | null)[]>([]);
   editStoryId = signal<number | null>(null);
   selectedCategoryIds = signal<number[]>([]);
   activeTab = signal(0);
@@ -217,12 +222,12 @@ export class CreateStoryComponent implements OnInit {
 
   get translations(): FormArray { return this.storyForm.get('translations') as FormArray; }
 
-  getPages(tIdx: number): FormArray {
-    return this.translations.at(tIdx).get('pages') as FormArray;
+  getPageTexts(tIdx: number): FormArray {
+    return this.translations.at(tIdx).get('pageTexts') as FormArray;
   }
 
-  getPagePreview(tIdx: number, pIdx: number): string | null {
-    return this.pagePhotoPreviews()[tIdx]?.[pIdx] ?? null;
+  getPageTextControl(tIdx: number, pIdx: number): FormControl {
+    return this.getPageTexts(tIdx).at(pIdx).get('text_content') as FormControl;
   }
 
   getTabLabel(tIdx: number): string {
@@ -231,7 +236,6 @@ export class CreateStoryComponent implements OnInit {
     return this.languages().find(l => String(l.id) === String(langId))?.name ?? `Language ${tIdx + 1}`;
   }
 
-  // Filter out languages already selected in other tabs
   availableLanguages(tIdx: number): Language[] {
     const taken = this.translations.controls
       .map((ctrl, i) => i !== tIdx ? String(ctrl.get('language_id')?.value) : null)
@@ -252,44 +256,47 @@ export class CreateStoryComponent implements OnInit {
         || 'Unnamed Category';
   }
 
-  private newPageGroup(): FormGroup {
+  private newPageTextGroup(): FormGroup {
     return this.fb.group({ text_content: ['', Validators.required] });
   }
 
-  private newTranslationGroup(preset?: { language_id: string; title: string; description: string; pages: FormArray }): FormGroup {
+  private newTranslationGroup(pageCount = 0): FormGroup {
     return this.fb.group({
-      language_id: [preset?.language_id ?? '', Validators.required],
-      title: [preset?.title ?? '', Validators.required],
-      description: [preset?.description ?? ''],
-      pages: preset?.pages ?? this.fb.array([this.newPageGroup()])
+      language_id: ['', Validators.required],
+      title: ['', Validators.required],
+      description: [''],
+      pageTexts: this.fb.array(Array.from({ length: pageCount }, () => this.newPageTextGroup()))
     });
   }
 
+  // Add a page to ALL translations
+  addPage() {
+    for (let i = 0; i < this.translations.length; i++) {
+      this.getPageTexts(i).push(this.newPageTextGroup());
+    }
+    this.pagePhotoFiles.update(a => [...a, null]);
+    this.pagePhotoPreviews.update(a => [...a, null]);
+  }
+
+  // Remove a page from ALL translations
+  removePage(pIdx: number) {
+    for (let i = 0; i < this.translations.length; i++) {
+      this.getPageTexts(i).removeAt(pIdx);
+    }
+    this.pagePhotoFiles.update(a => a.filter((_, i) => i !== pIdx));
+    this.pagePhotoPreviews.update(a => a.filter((_, i) => i !== pIdx));
+  }
+
   addTranslation() {
-    this.translations.push(this.newTranslationGroup());
-    this.pagePhotoFiles.update(a => [...a, [null]]);
-    this.pagePhotoPreviews.update(a => [...a, [null]]);
+    const pageCount = this.pagePhotoFiles().length;
+    this.translations.push(this.newTranslationGroup(pageCount));
     this.activeTab.set(this.translations.length - 1);
   }
 
   removeTranslation(tIdx: number) {
     if (this.translations.length === 1) return;
     this.translations.removeAt(tIdx);
-    this.pagePhotoFiles.update(a => a.filter((_, i) => i !== tIdx));
-    this.pagePhotoPreviews.update(a => a.filter((_, i) => i !== tIdx));
     this.activeTab.set(Math.min(this.activeTab(), this.translations.length - 1));
-  }
-
-  addPage(tIdx: number) {
-    this.getPages(tIdx).push(this.newPageGroup());
-    this.pagePhotoFiles.update(a => { const n = a.map(r => [...r]); n[tIdx] = [...(n[tIdx] ?? []), null]; return n; });
-    this.pagePhotoPreviews.update(a => { const n = a.map(r => [...r]); n[tIdx] = [...(n[tIdx] ?? []), null]; return n; });
-  }
-
-  removePage(tIdx: number, pIdx: number) {
-    this.getPages(tIdx).removeAt(pIdx);
-    this.pagePhotoFiles.update(a => { const n = a.map(r => [...r]); n[tIdx] = n[tIdx].filter((_, i) => i !== pIdx); return n; });
-    this.pagePhotoPreviews.update(a => { const n = a.map(r => [...r]); n[tIdx] = n[tIdx].filter((_, i) => i !== pIdx); return n; });
   }
 
   onCoverPhotoChange(event: Event) {
@@ -301,13 +308,13 @@ export class CreateStoryComponent implements OnInit {
     reader.readAsDataURL(file);
   }
 
-  onPagePhotoChange(event: Event, tIdx: number, pIdx: number) {
+  onPagePhotoChange(event: Event, pIdx: number) {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
-    this.pagePhotoFiles.update(a => { const n = a.map(r => [...r]); n[tIdx][pIdx] = file; return n; });
+    this.pagePhotoFiles.update(a => { const n = [...a]; n[pIdx] = file; return n; });
     const reader = new FileReader();
     reader.onload = e => {
-      this.pagePhotoPreviews.update(a => { const n = a.map(r => [...r]); n[tIdx][pIdx] = e.target?.result as string; return n; });
+      this.pagePhotoPreviews.update(a => { const n = [...a]; n[pIdx] = e.target?.result as string; return n; });
     };
     reader.readAsDataURL(file);
   }
@@ -321,35 +328,39 @@ export class CreateStoryComponent implements OnInit {
       this.editStoryId.set(storyId);
       this.prefillForm(storyId);
     } else {
-      this.addTranslation();
+      this.translations.push(this.newTranslationGroup(0));
     }
   }
 
   private prefillForm(storyId: number) {
     const story = this.data.getStoryById(storyId);
-    if (!story) { this.addTranslation(); return; }
+    if (!story) { this.translations.push(this.newTranslationGroup(0)); return; }
 
     if (story.photo_url) this.coverPhotoPreview.set(story.photo_url);
     this.selectedCategoryIds.set(story.category_ids ?? []);
 
     const tls = story.storyTranslations ?? [];
-    if (tls.length === 0) { this.addTranslation(); return; }
+    if (tls.length === 0) { this.translations.push(this.newTranslationGroup(0)); return; }
 
-    tls.forEach((t, tIdx) => {
+    // Page photos come from the first translation (shared)
+    const firstPages: any[] = (tls[0] as any).storyPages ?? [];
+    this.pagePhotoFiles.set(firstPages.map(() => null));
+    this.pagePhotoPreviews.set(firstPages.map((p: any) => p.photo_url ?? null));
+
+    tls.forEach(t => {
       const rawPages: any[] = (t as any).storyPages ?? [];
-      const pagesArray = this.fb.array(
-        rawPages.length > 0
-          ? rawPages.map((p: any) => this.fb.group({ text_content: [p.text_content, Validators.required] }))
-          : [this.newPageGroup()]
+      // Build pageTexts matching the page count from the first translation
+      const pageTexts = this.fb.array(
+        firstPages.map((_, i) => this.fb.group({
+          text_content: [rawPages[i]?.text_content ?? '', Validators.required]
+        }))
       );
-      this.translations.push(this.newTranslationGroup({
-        language_id: String(t.language.id),
-        title: t.title,
-        description: t.description ?? '',
-        pages: pagesArray,
+      this.translations.push(this.fb.group({
+        language_id: [String(t.language.id), Validators.required],
+        title: [t.title, Validators.required],
+        description: [t.description ?? ''],
+        pageTexts
       }));
-      this.pagePhotoFiles.update(a => [...a, rawPages.length > 0 ? rawPages.map(() => null) : [null]]);
-      this.pagePhotoPreviews.update(a => [...a, rawPages.length > 0 ? rawPages.map((p: any) => p.photo_url ?? null) : [null]]);
     });
   }
 
@@ -366,13 +377,14 @@ export class CreateStoryComponent implements OnInit {
       if (this.coverPhotoFile) fd.append('story_photo', this.coverPhotoFile);
     }
 
-    const pagesData = (t.pages as { text_content: string }[]).map((p, i) => ({
+    const pagesData = (t.pageTexts as { text_content: string }[]).map((p, i) => ({
       page_number: i + 1,
       text_content: p.text_content,
     }));
     fd.append('pages', JSON.stringify(pagesData));
 
-    (this.pagePhotoFiles()[tIdx] ?? []).forEach((file, i) => {
+    // Same page photos for every translation
+    this.pagePhotoFiles().forEach((file, i) => {
       if (file) fd.append(`page_photo_${i + 1}`, file);
     });
 
@@ -388,7 +400,6 @@ export class CreateStoryComponent implements OnInit {
     const count = this.translations.length;
 
     if (editId) {
-      // Edit: PUT each translation sequentially
       const requests$ = Array.from({ length: count }, (_, i) =>
         this.api.updateStory(editId, this.buildFormData(i, i === 0))
       );
@@ -411,7 +422,6 @@ export class CreateStoryComponent implements OnInit {
         }
       });
     } else {
-      // Create: POST first translation, PUT the rest
       this.api.createStory(this.buildFormData(0, true)).pipe(
         switchMap(result => {
           const storyId = (result as any).id;
