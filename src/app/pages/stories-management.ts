@@ -98,7 +98,7 @@ import { forkJoin, map, catchError, of } from 'rxjs';
                 <tr>
                   <th class="px-6 py-4">Cover</th>
                   <th class="px-6 py-4">Translations</th>
-                  <th class="px-6 py-4">Category</th>
+                  <th class="px-6 py-4">Categories</th>
                   <th class="px-6 py-4">Status</th>
                   <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -132,9 +132,16 @@ import { forkJoin, map, catchError, of } from 'rxjs';
                       </div>
                     </td>
                     <td class="px-6 py-4">
-                      <span class="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase tracking-wider">
-                        {{ getCategoryLabel(story.category_ids?.[0]) }}
-                      </span>
+                      <div class="flex flex-wrap gap-1">
+                        @for (catId of (story.category_ids ?? []); track catId) {
+                          <span class="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase tracking-wider">
+                            {{ getCategoryLabel(catId) }}
+                          </span>
+                        }
+                        @empty {
+                          <span class="text-xs text-slate-500 italic">Uncategorized</span>
+                        }
+                      </div>
                     </td>
                     <td class="px-6 py-4">
                       <div class="flex items-center gap-2">
