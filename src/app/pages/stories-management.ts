@@ -108,11 +108,12 @@ import { forkJoin, map, catchError, of } from 'rxjs';
                   <tr class="hover:bg-slate-800/20 transition-colors group align-top">
                     <td class="px-6 py-4">
                       <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
-                        @if (story.photo_url) {
-                          <img [src]="story.photo_url" class="w-full h-full object-cover" alt="Story Cover" />
-                        } @else {
-                          <img src="https://picsum.photos/seed/{{story.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Story Cover" />
-                        }
+                        <img
+                          [src]="story.photo_url || 'https://placehold.co/100x100/1e293b/64748b?text=S'"
+                          (error)="$any($event.target).src='https://placehold.co/100x100/1e293b/64748b?text=S'"
+                          class="w-full h-full object-cover"
+                          alt="Story Cover"
+                        />
                       </div>
                     </td>
                     <td class="px-6 py-4">
@@ -179,11 +180,12 @@ import { forkJoin, map, catchError, of } from 'rxjs';
                   <tr class="hover:bg-slate-800/20 transition-colors group align-top">
                     <td class="px-6 py-4">
                       <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
-                        @if (cat.photo_url) {
-                          <img [src]="cat.photo_url" class="w-full h-full object-cover" alt="Category Cover" />
-                        } @else {
-                          <img src="https://picsum.photos/seed/cat-{{cat.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Category Cover" />
-                        }
+                        <img
+                          [src]="cat.photo_url || 'https://placehold.co/100x100/1e293b/64748b?text=C'"
+                          (error)="$any($event.target).src='https://placehold.co/100x100/1e293b/64748b?text=C'"
+                          class="w-full h-full object-cover"
+                          alt="Category Cover"
+                        />
                       </div>
                     </td>
                     <td class="px-6 py-4">
