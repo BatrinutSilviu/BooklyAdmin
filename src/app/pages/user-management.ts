@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ApiService } from '../api.service';
@@ -68,6 +68,7 @@ import { UserWithDetails } from '../models';
                   <th class="px-6 py-4">Role</th>
                   <th class="px-6 py-4">Profiles</th>
                   <th class="px-6 py-4">Joined</th>
+                  <th class="px-6 py-4"></th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800">
@@ -110,6 +111,22 @@ import { UserWithDetails } from '../models';
                     <td class="px-6 py-4 text-sm text-slate-500">
                       {{ user.created_at | date:'mediumDate' }}
                     </td>
+                    <td class="px-6 py-4 text-right">
+                      @if (user.role !== 'admin') {
+                        <button
+                          (click)="deleteUser(user)"
+                          [disabled]="deleting() === user.id"
+                          class="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="Delete user"
+                        >
+                          @if (deleting() === user.id) {
+                            <mat-icon class="!text-lg animate-spin">refresh</mat-icon>
+                          } @else {
+                            <mat-icon class="!text-lg">delete</mat-icon>
+                          }
+                        </button>
+                      }
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -127,7 +144,16 @@ import { UserWithDetails } from '../models';
 export class UserManagementComponent {
   private api = inject(ApiService);
 
-  users = toSignal(this.api.getUsers());
+  private _loaded = toSignal(this.api.getUsers());
+  private _deletedIds = signal<Set<string>>(new Set());
+  deleting = signal<string | null>(null);
+
+  users = computed(() => {
+    const loaded = this._loaded();
+    if (loaded === undefined) return undefined;
+    const deleted = this._deletedIds();
+    return deleted.size ? loaded.filter(u => !deleted.has(u.id)) : loaded;
+  });
 
   adminCount() {
     return this.users()?.filter(u => u.role === 'admin').length ?? 0;
@@ -142,5 +168,16 @@ export class UserManagementComponent {
     if (role === 'admin') return base + 'bg-amber-400/10 text-amber-400';
     if (role === 'moderator') return base + 'bg-indigo-400/10 text-indigo-400';
     return base + 'bg-slate-500/10 text-slate-400';
+  }
+
+  deleteUser(user: UserWithDetails) {
+    this.deleting.set(user.id);
+    this.api.deleteUser(user.id).subscribe({
+      next: () => {
+        this._deletedIds.update(set => new Set([...set, user.id]));
+        this.deleting.set(null);
+      },
+      error: () => this.deleting.set(null),
+    });
   }
 }

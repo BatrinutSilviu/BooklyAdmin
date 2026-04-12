@@ -32,6 +32,10 @@ export class ApiService {
     return this.http.get<UserWithDetails[]>(`${this.baseUrl}/users`);
   }
 
+  deleteUser(userId: string): Observable<unknown> {
+    return this.http.delete(`${this.baseUrl}/users/${userId}`);
+  }
+
   // Categories
   getCategories(): Observable<Category[]> {
     return this.http.get<Category[]>(`${this.baseUrl}/categories`);
