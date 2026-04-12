@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Category, Language, Profile, AuthResponse } from './models';
+import { Category, Language, Profile, AuthResponse, UserWithDetails } from './models';
 import { environment } from '../environments/environment';
 
 @Injectable({
@@ -25,6 +25,11 @@ export class ApiService {
       `${this.baseUrl}/auth/refresh`,
       { refresh_token: refreshToken }
     );
+  }
+
+  // Users
+  getUsers(): Observable<UserWithDetails[]> {
+    return this.http.get<UserWithDetails[]>(`${this.baseUrl}/users`);
   }
 
   // Categories

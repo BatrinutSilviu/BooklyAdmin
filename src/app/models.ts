@@ -81,6 +81,14 @@ export interface Playlist {
   playlistStories?: unknown[];
 }
 
+export interface UserWithDetails {
+  id: string;
+  email: string;
+  role: string;
+  created_at: string;
+  profiles: Profile[];
+}
+
 export interface AuthResponse {
   user: User;
   session: {

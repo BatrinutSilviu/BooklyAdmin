@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DataService } from '../data.service';
+import { AuthService } from '../auth.service';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
@@ -12,7 +13,7 @@ import { RouterLink } from '@angular/router';
     <div class="space-y-8">
       <div>
         <h1 class="text-3xl font-bold tracking-tight">Dashboard Overview</h1>
-        <p class="text-slate-400 mt-1">Welcome back, Alex. Here's what's happening with your stories today.</p>
+        <p class="text-slate-400 mt-1">Welcome back, {{ auth.currentUser()?.email }}. Here's what's happening with your stories today.</p>
       </div>
 
       <!-- Stats Grid -->
@@ -168,4 +169,5 @@ import { RouterLink } from '@angular/router';
 })
 export class DashboardComponent {
   data = inject(DataService);
+  auth = inject(AuthService);
 }
