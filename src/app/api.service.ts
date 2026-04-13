@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Category, Language, Profile, AuthResponse, UserWithDetails } from './models';
+import { Category, Language, Profile, AuthResponse, UserWithDetails, PaginatedResponse } from './models';
 import { environment } from '../environments/environment';
 
 @Injectable({
@@ -28,8 +28,8 @@ export class ApiService {
   }
 
   // Users
-  getUsers(): Observable<UserWithDetails[]> {
-    return this.http.get<UserWithDetails[]>(`${this.baseUrl}/users`);
+  getUsers(page = 1, limit = 20): Observable<PaginatedResponse<UserWithDetails>> {
+    return this.http.get<PaginatedResponse<UserWithDetails>>(`${this.baseUrl}/users?page=${page}&limit=${limit}`);
   }
 
   deleteUser(userId: string): Observable<unknown> {
@@ -37,8 +37,8 @@ export class ApiService {
   }
 
   // Categories
-  getCategories(): Observable<Category[]> {
-    return this.http.get<Category[]>(`${this.baseUrl}/categories`);
+  getCategories(page = 1, limit = 20): Observable<PaginatedResponse<Category>> {
+    return this.http.get<PaginatedResponse<Category>>(`${this.baseUrl}/categories?page=${page}&limit=${limit}`);
   }
 
   getCategoriesByLanguage(languageId: number): Observable<Category[]> {
@@ -62,8 +62,8 @@ export class ApiService {
   }
 
   // Stories
-  getAllStories(): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/stories`);
+  getAllStories(page = 1, limit = 20): Observable<PaginatedResponse<unknown>> {
+    return this.http.get<PaginatedResponse<unknown>>(`${this.baseUrl}/stories?page=${page}&limit=${limit}`);
   }
 
   getStoriesByCategory(categoryId: number, languageId: number): Observable<unknown[]> {

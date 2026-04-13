@@ -1,12 +1,13 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { toSignal, toObservable } from '@angular/core/rxjs-interop';
 import { DataService } from '../data.service';
 import { ApiService } from '../api.service';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Category, Language, Story, StoryTranslation } from '../models';
-import { forkJoin, map, catchError, of } from 'rxjs';
+import { catchError, concat, of, switchMap, toArray, map } from 'rxjs';
 
 @Component({
   selector: 'app-stories-management',
@@ -164,6 +165,37 @@ import { forkJoin, map, catchError, of } from 'rxjs';
                 }
               </tbody>
             </table>
+            @if (storiesTotal() > 0) {
+              <div class="flex items-center justify-between px-6 py-4 border-t border-slate-800">
+                <span class="text-xs text-slate-500">{{ storiesTotal() }} stories · Page {{ storiesPage() }} of {{ storiesTotalPages() }}</span>
+                <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">Per page</span>
+                    <select
+                      [value]="storiesLimit()"
+                      (change)="changeStoriesLimit(+$any($event.target).value)"
+                      class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer"
+                    >
+                      @for (opt of pageSizeOptions; track opt) {
+                        <option [value]="opt">{{ opt }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      (click)="changeStoriesPage(storiesPage() - 1)"
+                      [disabled]="storiesPage() === 1"
+                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
+                    ><mat-icon class="!text-sm">chevron_left</mat-icon>Prev</button>
+                    <button
+                      (click)="changeStoriesPage(storiesPage() + 1)"
+                      [disabled]="storiesPage() === storiesTotalPages()"
+                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
+                    >Next<mat-icon class="!text-sm">chevron_right</mat-icon></button>
+                  </div>
+                </div>
+              </div>
+            }
             }
           } @else if (activeTab() === 'categories') {
             @if (isLoadingCategories()) {
@@ -183,7 +215,7 @@ import { forkJoin, map, catchError, of } from 'rxjs';
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800">
-                @for (cat of data.categories(); track cat.id) {
+                @for (cat of categories(); track cat.id) {
                   <tr class="hover:bg-slate-800/20 transition-colors group align-top">
                     <td class="px-6 py-4">
                       <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
@@ -231,6 +263,37 @@ import { forkJoin, map, catchError, of } from 'rxjs';
                 }
               </tbody>
             </table>
+            @if (categoriesTotal() > 0) {
+              <div class="flex items-center justify-between px-6 py-4 border-t border-slate-800">
+                <span class="text-xs text-slate-500">{{ categoriesTotal() }} categories · Page {{ categoriesPage() }} of {{ categoriesTotalPages() }}</span>
+                <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">Per page</span>
+                    <select
+                      [value]="categoriesLimit()"
+                      (change)="changeCategoriesLimit(+$any($event.target).value)"
+                      class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer"
+                    >
+                      @for (opt of pageSizeOptions; track opt) {
+                        <option [value]="opt">{{ opt }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      (click)="changeCategoriesPage(categoriesPage() - 1)"
+                      [disabled]="categoriesPage() === 1"
+                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
+                    ><mat-icon class="!text-sm">chevron_left</mat-icon>Prev</button>
+                    <button
+                      (click)="changeCategoriesPage(categoriesPage() + 1)"
+                      [disabled]="categoriesPage() === categoriesTotalPages()"
+                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
+                    >Next<mat-icon class="!text-sm">chevron_right</mat-icon></button>
+                  </div>
+                </div>
+              </div>
+            }
             }
           } @else if (activeTab() === 'series') {
             <table class="w-full text-left">
@@ -290,32 +353,61 @@ import { forkJoin, map, catchError, of } from 'rxjs';
             </button>
           </div>
 
-          <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()" class="p-8 space-y-6">
+          <div class="p-8 space-y-6">
             @if (categoryError()) {
               <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-sm">{{ categoryError() }}</div>
             }
 
-            <!-- Language + Name -->
-            <div class="space-y-4">
-              <div class="flex items-center gap-2 text-primary text-[10px] font-bold uppercase tracking-widest">
-                <mat-icon class="!text-sm">translate</mat-icon>
-                Category Name
-              </div>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="space-y-2">
-                  <label class="text-xs font-bold text-slate-500">Language *</label>
-                  <select formControlName="language_id" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all">
-                    <option value="">Select Language</option>
-                    @for (lang of languages(); track lang.id) {
-                      <option [value]="lang.id">{{ lang.name }}</option>
+            <!-- Translation tabs -->
+            <div class="bg-slate-950/30 border border-slate-800 rounded-2xl overflow-hidden">
+              <div class="flex items-center gap-1 border-b border-slate-800 px-4 overflow-x-auto">
+                @for (tCtrl of categoryTranslations.controls; track $index; let ti = $index) {
+                  <button type="button" (click)="categoryActiveTab.set(ti)"
+                    class="flex items-center gap-1.5 px-4 py-4 text-sm font-bold border-b-2 transition-all whitespace-nowrap flex-shrink-0"
+                    [class.text-primary]="categoryActiveTab() === ti"
+                    [class.border-primary]="categoryActiveTab() === ti"
+                    [class.border-transparent]="categoryActiveTab() !== ti"
+                    [class.text-slate-400]="categoryActiveTab() !== ti">
+                    <mat-icon class="!text-base">translate</mat-icon>
+                    {{ getCategoryTabLabel(ti) }}
+                    @if (categoryTranslations.length > 1) {
+                      <span (click)="$event.stopPropagation(); removeCategoryTranslation(ti)"
+                        class="w-4 h-4 flex items-center justify-center rounded-full text-slate-500 hover:bg-rose-500 hover:text-white transition-colors text-xs leading-none ml-1">
+                        ✕
+                      </span>
                     }
-                  </select>
-                </div>
-                <div class="space-y-2">
-                  <label class="text-xs font-bold text-slate-500">Name *</label>
-                  <input formControlName="name" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="e.g. Science Fiction">
-                </div>
+                  </button>
+                }
+                <button type="button" (click)="addCategoryTranslation()"
+                  class="ml-2 flex-shrink-0 flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/10 rounded-lg transition-colors my-2">
+                  <mat-icon class="!text-sm">add</mat-icon>
+                  Add Language
+                </button>
               </div>
+
+              <form [formGroup]="categoryTranslationsForm">
+                <div formArrayName="translations">
+                  @for (tCtrl of categoryTranslations.controls; track $index; let ti = $index) {
+                    <div [formGroupName]="ti" [hidden]="categoryActiveTab() !== ti" class="p-6">
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                          <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Language *</label>
+                          <select formControlName="language_id" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all">
+                            <option value="">Select Language</option>
+                            @for (lang of availableCategoryLanguages(ti); track lang.id) {
+                              <option [value]="lang.id">{{ lang.name }}</option>
+                            }
+                          </select>
+                        </div>
+                        <div class="space-y-2">
+                          <label class="text-xs font-bold text-slate-500 uppercase tracking-wider">Name *</label>
+                          <input formControlName="name" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" placeholder="e.g. Science Fiction">
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </form>
             </div>
 
             <!-- Cover Image -->
@@ -342,11 +434,11 @@ import { forkJoin, map, catchError, of } from 'rxjs';
 
             <div class="flex justify-end gap-4 pt-4">
               <button type="button" (click)="closeCategoryModal()" class="px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-white transition-colors">Cancel</button>
-              <button type="submit" [disabled]="categoryForm.invalid || isSavingCategory()" class="px-8 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all">
+              <button (click)="saveCategory()" [disabled]="categoryTranslationsForm.invalid || isSavingCategory()" class="px-8 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all">
                 {{ isSavingCategory() ? 'Saving...' : 'Save Category' }}
               </button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     }
@@ -402,8 +494,6 @@ export class StoriesManagementComponent implements OnInit {
   private fb = inject(FormBuilder);
 
   activeTab = signal('stories');
-  isLoadingStories = signal(false);
-  isLoadingCategories = signal(false);
   showCategoryModal = signal(false);
   editingCategory = signal<Category | null>(null);
   languages = signal<Language[]>([]);
@@ -412,6 +502,72 @@ export class StoriesManagementComponent implements OnInit {
   categoryPhotoPreview = signal<string | null>(null);
   private categoryPhotoFile: File | null = null;
 
+  readonly pageSizeOptions = [10, 20, 50, 100];
+
+  // --- Stories reactive loading (switchMap cancels stale in-flight requests) ---
+  storiesPage = signal(1);
+  storiesLimit = signal(20);
+  private _storyRefresh = signal(0);
+  private _storyParams = computed(() => ({ page: this.storiesPage(), limit: this.storiesLimit(), _r: this._storyRefresh() }));
+  private _storyRaw = toSignal(
+    toObservable(this._storyParams).pipe(
+      switchMap(({ page, limit }) =>
+        this.api.getAllStories(page, limit).pipe(
+          catchError(() => of({ data: [] as unknown[], pagination: { total: 0, page: 1, limit, totalPages: 0 } }))
+        )
+      )
+    )
+  );
+  isLoadingStories = computed(() => this._storyRaw() === undefined);
+  storiesTotal = computed(() => this._storyRaw()?.pagination.total ?? 0);
+  storiesTotalPages = computed(() => this._storyRaw()?.pagination.totalPages ?? 1);
+  private _syncStories = effect(() => {
+    const res = this._storyRaw();
+    if (!res) return;
+    const mapped: Story[] = (res.data as any[]).map((story: any) => {
+      const translations: StoryTranslation[] = (story.storyTranslations ?? []).map((t: any) => ({
+        id: t.id, title: t.title, description: t.description,
+        language: t.language, storyPages: t.storyPages ?? [],
+      }));
+      const categoryIds: number[] = (story.storyCategories ?? []).map((sc: any) => sc.category?.id ?? sc.category_id);
+      return {
+        id: story.id, title: translations[0]?.title || 'Untitled',
+        photo_url: story.photo_url, audio_url: story.audio_url,
+        story_series_id: story.story_series_id,
+        category_ids: categoryIds.filter(Boolean),
+        storyTranslations: translations,
+      } as Story;
+    });
+    this.data.stories.set(mapped);
+  }, { allowSignalWrites: true });
+
+  // --- Categories reactive loading ---
+  categoriesPage = signal(1);
+  categoriesLimit = signal(20);
+  private _catRefresh = signal(0);
+  private _catParams = computed(() => ({ page: this.categoriesPage(), limit: this.categoriesLimit(), _r: this._catRefresh() }));
+  private _catResponse = toSignal(
+    toObservable(this._catParams).pipe(
+      switchMap(({ page, limit }) =>
+        this.api.getCategories(page, limit).pipe(
+          catchError(() => of({ data: [] as Category[], pagination: { total: 0, page: 1, limit, totalPages: 0 } }))
+        )
+      )
+    )
+  );
+  isLoadingCategories = computed(() => this._catResponse() === undefined);
+  categoriesTotal = computed(() => this._catResponse()?.pagination.total ?? 0);
+  categoriesTotalPages = computed(() => this._catResponse()?.pagination.totalPages ?? 1);
+  // Local computed for template display (reactive, no stale-data race)
+  categories = computed(() => this._catResponse()?.data ?? []);
+  private _syncCats = effect(() => {
+    const res = this._catResponse();
+    if (res) this.data.categories.set(res.data); // keep DataService in sync for CreateStory sidebar
+  }, { allowSignalWrites: true });
+
+  // Full category list for resolving labels in the stories tab
+  private categoriesLookup = signal<Category[]>([]);
+
   // Delete Modal State
   showDeleteModal = signal(false);
   itemToDelete = signal<{ id: string, type: 'story' | 'category' | 'series', name: string } | null>(null);
@@ -419,65 +575,75 @@ export class StoriesManagementComponent implements OnInit {
   series = computed(() => this.data.series());
 
 
-  categoryForm = this.fb.group({
-    language_id: ['', Validators.required],
-    name: ['', Validators.required],
-  });
+  categoryActiveTab = signal(0);
+
+  categoryTranslationsForm = this.fb.group({ translations: this.fb.array([]) });
+
+  get categoryTranslations(): FormArray {
+    return this.categoryTranslationsForm.get('translations') as FormArray;
+  }
+
+  private newCategoryTranslationGroup(langId = '', name = '') {
+    return this.fb.group({
+      language_id: [langId, Validators.required],
+      name: [name, Validators.required],
+    });
+  }
+
+  getCategoryTabLabel(tIdx: number): string {
+    const langId = this.categoryTranslations.at(tIdx)?.get('language_id')?.value;
+    if (!langId) return `Language ${tIdx + 1}`;
+    return this.languages().find(l => String(l.id) === String(langId))?.name ?? `Language ${tIdx + 1}`;
+  }
+
+  availableCategoryLanguages(tIdx: number): Language[] {
+    const taken = this.categoryTranslations.controls
+      .map((ctrl, i) => i !== tIdx ? String(ctrl.get('language_id')?.value) : null)
+      .filter(Boolean);
+    return this.languages().filter(l => !taken.includes(String(l.id)));
+  }
+
+  addCategoryTranslation() {
+    this.categoryTranslations.push(this.newCategoryTranslationGroup());
+    this.categoryActiveTab.set(this.categoryTranslations.length - 1);
+  }
+
+  removeCategoryTranslation(tIdx: number) {
+    if (this.categoryTranslations.length === 1) return;
+    this.categoryTranslations.removeAt(tIdx);
+    this.categoryActiveTab.set(Math.min(this.categoryActiveTab(), this.categoryTranslations.length - 1));
+  }
 
   ngOnInit() {
     this.api.getLanguages().subscribe(langs => this.languages.set(langs));
-    this.loadCategoriesAndStories();
+    // Populate lookup so category names resolve in the stories tab
+    // (reactive chains for stories/categories auto-start via toSignal)
+    this.api.getCategories(1, 100).subscribe(res => this.categoriesLookup.set(res.data));
   }
 
-  private loadCategoriesAndStories() {
-    this.isLoadingStories.set(true);
-    this.isLoadingCategories.set(true);
+  changeStoriesPage(page: number) {
+    if (page < 1 || page > this.storiesTotalPages()) return;
+    this.storiesPage.set(page);
+  }
 
-    forkJoin({
-      categories: this.api.getCategories().pipe(catchError(() => of([]))),
-      stories: this.api.getAllStories().pipe(catchError(() => of([]))),
-    }).pipe(
-      map(({ categories, stories }) => {
-        this.data.categories.set(categories);
-        this.isLoadingCategories.set(false);
+  changeStoriesLimit(limit: number) {
+    this.storiesLimit.set(limit);
+    this.storiesPage.set(1);
+  }
 
-        const mapped: Story[] = (stories as any[]).map(story => {
-          const translations: StoryTranslation[] = (story.storyTranslations ?? []).map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            description: t.description,
-            language: t.language,
-            storyPages: t.storyPages ?? [],
-          }));
-          const categoryIds: number[] = (story.storyCategories ?? []).map((sc: any) => sc.category?.id ?? sc.category_id);
-          return {
-            id: story.id,
-            title: translations[0]?.title || 'Untitled',
-            photo_url: story.photo_url,
-            audio_url: story.audio_url,
-            story_series_id: story.story_series_id,
-            category_ids: categoryIds.filter(Boolean),
-            storyTranslations: translations,
-          } as Story;
-        });
+  changeCategoriesPage(page: number) {
+    if (page < 1 || page > this.categoriesTotalPages()) return;
+    this.categoriesPage.set(page);
+  }
 
-        return mapped;
-      })
-    ).subscribe({
-      next: stories => {
-        this.data.stories.set(stories);
-        this.isLoadingStories.set(false);
-      },
-      error: () => {
-        this.isLoadingStories.set(false);
-        this.isLoadingCategories.set(false);
-      },
-    });
+  changeCategoriesLimit(limit: number) {
+    this.categoriesLimit.set(limit);
+    this.categoriesPage.set(1);
   }
 
   getCategoryLabel(categoryId?: number): string {
     if (!categoryId) return 'Uncategorized';
-    const cat = this.data.getCategoryById(categoryId);
+    const cat = this.categoriesLookup().find(c => c.id === categoryId);
     return cat ? this.getCategoryName(cat) : String(categoryId);
   }
 
@@ -492,7 +658,9 @@ export class StoriesManagementComponent implements OnInit {
 
   openCategoryModal() {
     this.editingCategory.set(null);
-    this.categoryForm.reset();
+    while (this.categoryTranslations.length) this.categoryTranslations.removeAt(0);
+    this.categoryTranslations.push(this.newCategoryTranslationGroup());
+    this.categoryActiveTab.set(0);
     this.categoryPhotoFile = null;
     this.categoryPhotoPreview.set(null);
     this.categoryError.set(null);
@@ -501,11 +669,16 @@ export class StoriesManagementComponent implements OnInit {
 
   editCategory(cat: Category) {
     this.editingCategory.set(cat);
-    const firstTranslation = cat.categoryTranslations?.[0];
-    this.categoryForm.patchValue({
-      language_id: firstTranslation ? String(firstTranslation.language.id) : '',
-      name: firstTranslation?.name || '',
-    });
+    while (this.categoryTranslations.length) this.categoryTranslations.removeAt(0);
+    const translations = cat.categoryTranslations ?? [];
+    if (translations.length === 0) {
+      this.categoryTranslations.push(this.newCategoryTranslationGroup());
+    } else {
+      translations.forEach(t => {
+        this.categoryTranslations.push(this.newCategoryTranslationGroup(String(t.language.id), t.name));
+      });
+    }
+    this.categoryActiveTab.set(0);
     this.categoryPhotoFile = null;
     this.categoryPhotoPreview.set(cat.photo_url || null);
     this.categoryError.set(null);
@@ -526,8 +699,7 @@ export class StoriesManagementComponent implements OnInit {
   }
 
   saveCategory() {
-    if (this.categoryForm.invalid || this.isSavingCategory()) return;
-    const { language_id, name } = this.categoryForm.value;
+    if (this.categoryTranslationsForm.invalid || this.isSavingCategory()) return;
     const editing = this.editingCategory();
 
     if (!editing && !this.categoryPhotoFile) {
@@ -535,34 +707,61 @@ export class StoriesManagementComponent implements OnInit {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('language_id', language_id!);
-    formData.append('name', name!);
-    if (this.categoryPhotoFile) formData.append('photo', this.categoryPhotoFile);
-
     this.isSavingCategory.set(true);
     this.categoryError.set(null);
 
-    const request = editing
-      ? this.api.updateCategory(editing.id, formData)
-      : this.api.createCategory(formData);
+    const count = this.categoryTranslations.length;
 
-    request.subscribe({
-      next: (saved) => {
-        const category = saved as Category;
-        if (editing) {
-          this.data.updateCategory(category);
-        } else {
-          this.data.addCategory(category);
+    const buildFormData = (tIdx: number, isFirst: boolean): FormData => {
+      const t = this.categoryTranslations.at(tIdx).value;
+      const fd = new FormData();
+      fd.append('language_id', t.language_id);
+      fd.append('name', t.name);
+      if (isFirst && this.categoryPhotoFile) fd.append('photo', this.categoryPhotoFile);
+      return fd;
+    };
+
+    if (editing) {
+      const requests$ = Array.from({ length: count }, (_, i) =>
+        this.api.updateCategory(editing.id, buildFormData(i, i === 0))
+      );
+      concat(...requests$).pipe(toArray()).subscribe({
+        next: (results) => {
+          const last = results[results.length - 1] as Category;
+          this.data.updateCategory(last);
+          this.categoriesLookup.update(cats => cats.map(c => c.id === last.id ? last : c));
+          this.isSavingCategory.set(false);
+          this.closeCategoryModal();
+        },
+        error: (err) => {
+          this.categoryError.set(err.error?.error || 'Failed to save category.');
+          this.isSavingCategory.set(false);
         }
-        this.isSavingCategory.set(false);
-        this.closeCategoryModal();
-      },
-      error: (err) => {
-        this.categoryError.set(err.error?.error || 'Failed to save category.');
-        this.isSavingCategory.set(false);
-      }
-    });
+      });
+    } else {
+      this.api.createCategory(buildFormData(0, true)).pipe(
+        switchMap((result) => {
+          const categoryId = (result as any).id;
+          if (count === 1) return of(result);
+          const rest$ = Array.from({ length: count - 1 }, (_, i) =>
+            this.api.updateCategory(categoryId, buildFormData(i + 1, false))
+          );
+          return concat(...rest$).pipe(toArray(), map(() => result));
+        })
+      ).subscribe({
+        next: (saved) => {
+          const category = saved as Category;
+          this.categoriesLookup.update(cats => [...cats, category]);
+          this._catRefresh.update(n => n + 1);
+          this.isSavingCategory.set(false);
+          this.closeCategoryModal();
+        },
+        error: (err) => {
+          this.categoryError.set(err.error?.error || 'Failed to create category.');
+          this.isSavingCategory.set(false);
+        }
+      });
+    }
   }
 
   isDeleting = signal(false);
@@ -596,8 +795,18 @@ export class StoriesManagementComponent implements OnInit {
 
     request$.subscribe({
       next: () => {
-        if (item.type === 'story') this.data.deleteStory(id);
-        else if (item.type === 'category') this.data.deleteCategory(id);
+        if (item.type === 'story') {
+          const prevPage = this.data.stories().length === 1 && this.storiesPage() > 1
+            ? this.storiesPage() - 1 : this.storiesPage();
+          if (prevPage !== this.storiesPage()) this.storiesPage.set(prevPage);
+          else this._storyRefresh.update(n => n + 1);
+        } else if (item.type === 'category') {
+          this.categoriesLookup.update(cats => cats.filter(c => c.id !== id));
+          const prevPage = this.categories().length === 1 && this.categoriesPage() > 1
+            ? this.categoriesPage() - 1 : this.categoriesPage();
+          if (prevPage !== this.categoriesPage()) this.categoriesPage.set(prevPage);
+          else this._catRefresh.update(n => n + 1);
+        }
         this.isDeleting.set(false);
         this.closeDeleteModal();
       },
