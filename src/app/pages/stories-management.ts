@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
 import { Category, Language, Story, StoryTranslation } from '../models';
-import { catchError, concat, of, switchMap, toArray, map } from 'rxjs';
+import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'rxjs';
 
 @Component({
   selector: 'app-stories-management',
@@ -68,21 +68,50 @@ import { catchError, concat, of, switchMap, toArray, map } from 'rxjs';
         </button>
       </div>
 
-      <!-- Search and Filter Bar -->
-      <div class="flex gap-4">
-        <div class="flex-1 relative group">
-          <mat-icon class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">search</mat-icon>
-          <input 
-            type="text" 
-            [placeholder]="'Search ' + activeTab() + '...'" 
-            class="w-full bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-          />
+      <!-- Filters (per-tab) -->
+      @if (activeTab() === 'stories') {
+        <div class="flex flex-wrap gap-3">
+          <div class="flex-1 min-w-[200px] relative group">
+            <mat-icon class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors !text-lg">search</mat-icon>
+            <input type="text" placeholder="Search stories by title…" [value]="storiesNameInput()"
+              (input)="storiesNameInput.set($any($event.target).value)"
+              class="w-full bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"/>
+          </div>
+          <select [value]="storiesLanguageId() ?? ''"
+            (change)="storiesLanguageId.set(+$any($event.target).value || null); storiesPage.set(1)"
+            class="bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-300 outline-none focus:border-primary cursor-pointer">
+            <option value="">All Languages</option>
+            @for (lang of languages(); track lang.id) {
+              <option [value]="lang.id">{{ lang.name }}</option>
+            }
+          </select>
+          <select [value]="storiesCategoryId() ?? ''"
+            (change)="storiesCategoryId.set(+$any($event.target).value || null); storiesPage.set(1)"
+            class="bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-300 outline-none focus:border-primary cursor-pointer">
+            <option value="">All Categories</option>
+            @for (cat of categoriesLookup(); track cat.id) {
+              <option [value]="cat.id">{{ getCategoryName(cat) }}</option>
+            }
+          </select>
         </div>
-        <button class="px-4 py-2.5 border border-slate-800 rounded-xl flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
-          <mat-icon class="!text-lg">filter_list</mat-icon>
-          Filters
-        </button>
-      </div>
+      } @else if (activeTab() === 'categories') {
+        <div class="flex flex-wrap gap-3">
+          <div class="flex-1 min-w-[200px] relative group">
+            <mat-icon class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors !text-lg">search</mat-icon>
+            <input type="text" placeholder="Search categories by name…" [value]="categoriesNameInput()"
+              (input)="categoriesNameInput.set($any($event.target).value)"
+              class="w-full bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"/>
+          </div>
+          <select [value]="categoriesLanguageId() ?? ''"
+            (change)="categoriesLanguageId.set(+$any($event.target).value || null); categoriesPage.set(1)"
+            class="bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-300 outline-none focus:border-primary cursor-pointer">
+            <option value="">All Languages</option>
+            @for (lang of languages(); track lang.id) {
+              <option [value]="lang.id">{{ lang.name }}</option>
+            }
+          </select>
+        </div>
+      }
 
       <!-- Content Tables -->
       <div class="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
@@ -505,14 +534,31 @@ export class StoriesManagementComponent implements OnInit {
   readonly pageSizeOptions = [10, 20, 50, 100];
 
   // --- Stories reactive loading (switchMap cancels stale in-flight requests) ---
+  storiesNameInput = signal('');
+  storiesLanguageId = signal<number | null>(null);
+  storiesCategoryId = signal<number | null>(null);
+  private _storiesNameD = toSignal(
+    toObservable(this.storiesNameInput).pipe(debounceTime(350)),
+    { initialValue: '' }
+  );
+  private _resetStoryPage = effect(() => {
+    this._storiesNameD(); this.storiesLanguageId(); this.storiesCategoryId();
+    this.storiesPage.set(1);
+  }, { allowSignalWrites: true });
+
   storiesPage = signal(1);
   storiesLimit = signal(20);
   private _storyRefresh = signal(0);
-  private _storyParams = computed(() => ({ page: this.storiesPage(), limit: this.storiesLimit(), _r: this._storyRefresh() }));
+  private _storyParams = computed(() => ({
+    page: this.storiesPage(), limit: this.storiesLimit(), _r: this._storyRefresh(),
+    name: this._storiesNameD() || undefined,
+    languageId: this.storiesLanguageId() ?? undefined,
+    categoryId: this.storiesCategoryId() ?? undefined,
+  }));
   private _storyRaw = toSignal(
     toObservable(this._storyParams).pipe(
-      switchMap(({ page, limit }) =>
-        this.api.getAllStories(page, limit).pipe(
+      switchMap(({ page, limit, name, languageId, categoryId }) =>
+        this.api.getAllStories(page, limit, { name, languageId, categoryId }).pipe(
           catchError(() => of({ data: [] as unknown[], pagination: { total: 0, page: 1, limit, totalPages: 0 } }))
         )
       )
@@ -542,14 +588,29 @@ export class StoriesManagementComponent implements OnInit {
   }, { allowSignalWrites: true });
 
   // --- Categories reactive loading ---
+  categoriesNameInput = signal('');
+  categoriesLanguageId = signal<number | null>(null);
+  private _categoriesNameD = toSignal(
+    toObservable(this.categoriesNameInput).pipe(debounceTime(350)),
+    { initialValue: '' }
+  );
+  private _resetCatPage = effect(() => {
+    this._categoriesNameD(); this.categoriesLanguageId();
+    this.categoriesPage.set(1);
+  }, { allowSignalWrites: true });
+
   categoriesPage = signal(1);
   categoriesLimit = signal(20);
   private _catRefresh = signal(0);
-  private _catParams = computed(() => ({ page: this.categoriesPage(), limit: this.categoriesLimit(), _r: this._catRefresh() }));
+  private _catParams = computed(() => ({
+    page: this.categoriesPage(), limit: this.categoriesLimit(), _r: this._catRefresh(),
+    name: this._categoriesNameD() || undefined,
+    languageId: this.categoriesLanguageId() ?? undefined,
+  }));
   private _catResponse = toSignal(
     toObservable(this._catParams).pipe(
-      switchMap(({ page, limit }) =>
-        this.api.getCategories(page, limit).pipe(
+      switchMap(({ page, limit, name, languageId }) =>
+        this.api.getCategories(page, limit, { name, languageId }).pipe(
           catchError(() => of({ data: [] as Category[], pagination: { total: 0, page: 1, limit, totalPages: 0 } }))
         )
       )
@@ -565,8 +626,8 @@ export class StoriesManagementComponent implements OnInit {
     if (res) this.data.categories.set(res.data); // keep DataService in sync for CreateStory sidebar
   }, { allowSignalWrites: true });
 
-  // Full category list for resolving labels in the stories tab
-  private categoriesLookup = signal<Category[]>([]);
+  // Full category list for resolving labels and populating the category filter dropdown
+  categoriesLookup = signal<Category[]>([]);
 
   // Delete Modal State
   showDeleteModal = signal(false);

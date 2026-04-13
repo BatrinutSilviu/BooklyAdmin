@@ -1,7 +1,7 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { toSignal, toObservable } from '@angular/core/rxjs-interop';
-import { switchMap, catchError } from 'rxjs/operators';
+import { switchMap, catchError, debounceTime } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { ApiService } from '../api.service';
 import { MatIconModule } from '@angular/material/icon';
@@ -48,6 +48,30 @@ const EMPTY_PAGE: PaginatedResponse<UserWithDetails> = {
           </div>
           <p class="text-2xl font-bold">{{ usersWithProfiles() }}</p>
         </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="flex flex-wrap gap-3">
+        <div class="flex-1 min-w-[200px] relative group">
+          <mat-icon class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors !text-lg">search</mat-icon>
+          <input
+            type="text"
+            placeholder="Search by profile name…"
+            [value]="nameInput()"
+            (input)="nameInput.set($any($event.target).value)"
+            class="w-full bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+          />
+        </div>
+        <select
+          [value]="roleFilter()"
+          (change)="roleFilter.set($any($event.target).value); page.set(1)"
+          class="bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-300 outline-none focus:border-primary cursor-pointer"
+        >
+          <option value="">All Roles</option>
+          @for (r of roleOptions; track r.value) {
+            <option [value]="r.value">{{ r.label }}</option>
+          }
+        </select>
       </div>
 
       <!-- User Directory Table -->
@@ -178,17 +202,41 @@ export class UserManagementComponent {
   private api = inject(ApiService);
 
   readonly pageSizeOptions = [10, 20, 50, 100];
+  readonly roleOptions = [
+    { value: 'admin', label: 'Admin' },
+    { value: 'authenticated', label: 'User' },
+  ];
 
   page = signal(1);
   limit = signal(20);
+  nameInput = signal('');
+  roleFilter = signal('');
   deleting = signal<string | null>(null);
   private _deletedIds = signal<Set<string>>(new Set());
 
-  private _params = computed(() => ({ page: this.page(), limit: this.limit() }));
+  private _nameD = toSignal(
+    toObservable(this.nameInput).pipe(debounceTime(350)),
+    { initialValue: '' }
+  );
+
+  // Reset to page 1 whenever filters change
+  private _resetPage = effect(() => {
+    this._nameD(); this.roleFilter();
+    this.page.set(1);
+  }, { allowSignalWrites: true });
+
+  private _params = computed(() => ({
+    page: this.page(),
+    limit: this.limit(),
+    name: this._nameD() || undefined,
+    role: this.roleFilter() || undefined,
+  }));
 
   private _response = toSignal(
     toObservable(this._params).pipe(
-      switchMap(({ page, limit }) => this.api.getUsers(page, limit).pipe(catchError(() => of(EMPTY_PAGE))))
+      switchMap(({ page, limit, name, role }) =>
+        this.api.getUsers(page, limit, { name, role }).pipe(catchError(() => of(EMPTY_PAGE)))
+      )
     )
   );
 

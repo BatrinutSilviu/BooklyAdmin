@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Category, Language, Profile, AuthResponse, UserWithDetails, PaginatedResponse } from './models';
 import { environment } from '../environments/environment';
@@ -28,8 +28,11 @@ export class ApiService {
   }
 
   // Users
-  getUsers(page = 1, limit = 20): Observable<PaginatedResponse<UserWithDetails>> {
-    return this.http.get<PaginatedResponse<UserWithDetails>>(`${this.baseUrl}/users?page=${page}&limit=${limit}`);
+  getUsers(page = 1, limit = 20, filters?: { name?: string; role?: string }): Observable<PaginatedResponse<UserWithDetails>> {
+    let params = new HttpParams().set('page', page).set('limit', limit);
+    if (filters?.name) params = params.set('name', filters.name);
+    if (filters?.role) params = params.set('role', filters.role);
+    return this.http.get<PaginatedResponse<UserWithDetails>>(`${this.baseUrl}/users`, { params });
   }
 
   deleteUser(userId: string): Observable<unknown> {
@@ -37,8 +40,11 @@ export class ApiService {
   }
 
   // Categories
-  getCategories(page = 1, limit = 20): Observable<PaginatedResponse<Category>> {
-    return this.http.get<PaginatedResponse<Category>>(`${this.baseUrl}/categories?page=${page}&limit=${limit}`);
+  getCategories(page = 1, limit = 20, filters?: { name?: string; languageId?: number }): Observable<PaginatedResponse<Category>> {
+    let params = new HttpParams().set('page', page).set('limit', limit);
+    if (filters?.name) params = params.set('name', filters.name);
+    if (filters?.languageId) params = params.set('language_id', filters.languageId);
+    return this.http.get<PaginatedResponse<Category>>(`${this.baseUrl}/categories`, { params });
   }
 
   getCategoriesByLanguage(languageId: number): Observable<Category[]> {
@@ -62,8 +68,12 @@ export class ApiService {
   }
 
   // Stories
-  getAllStories(page = 1, limit = 20): Observable<PaginatedResponse<unknown>> {
-    return this.http.get<PaginatedResponse<unknown>>(`${this.baseUrl}/stories?page=${page}&limit=${limit}`);
+  getAllStories(page = 1, limit = 20, filters?: { name?: string; languageId?: number; categoryId?: number }): Observable<PaginatedResponse<unknown>> {
+    let params = new HttpParams().set('page', page).set('limit', limit);
+    if (filters?.name) params = params.set('name', filters.name);
+    if (filters?.languageId) params = params.set('language_id', filters.languageId);
+    if (filters?.categoryId) params = params.set('category_id', filters.categoryId);
+    return this.http.get<PaginatedResponse<unknown>>(`${this.baseUrl}/stories`, { params });
   }
 
   getStoriesByCategory(categoryId: number, languageId: number): Observable<unknown[]> {
