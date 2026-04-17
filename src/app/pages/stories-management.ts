@@ -175,8 +175,8 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                     </td>
                     <td class="px-6 py-4">
                       <div class="flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        <span class="text-sm text-slate-300">Published</span>
+                        <span class="w-1.5 h-1.5 rounded-full" [class]="story.status ? 'bg-emerald-400' : 'bg-slate-500'"></span>
+                        <span class="text-sm text-slate-300">{{ story.status ? 'Active' : 'Inactive' }}</span>
                       </div>
                     </td>
                     <td class="px-6 py-4 text-right">
@@ -201,12 +201,11 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                   <div class="flex items-center gap-2">
                     <span class="text-xs text-slate-500">Per page</span>
                     <select
-                      [value]="storiesLimit()"
                       (change)="changeStoriesLimit(+$any($event.target).value)"
                       class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer"
                     >
                       @for (opt of pageSizeOptions; track opt) {
-                        <option [value]="opt">{{ opt }}</option>
+                        <option [value]="opt" [selected]="opt === storiesLimit()">{{ opt }}</option>
                       }
                     </select>
                   </div>
@@ -273,8 +272,9 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                     </td>
                     <td class="px-6 py-4 text-sm text-slate-400">{{ cat._count?.storyCategories || 0 }}</td>
                     <td class="px-6 py-4">
-                      <span class="px-2 py-1 bg-emerald-400/10 text-emerald-400 text-[10px] font-bold rounded uppercase tracking-wider">
-                        Active
+                      <span class="px-2 py-1 text-[10px] font-bold rounded uppercase tracking-wider"
+                        [class]="cat.status ? 'bg-emerald-400/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'">
+                        {{ cat.status ? 'Active' : 'Inactive' }}
                       </span>
                     </td>
                     <td class="px-6 py-4 text-right">
@@ -299,12 +299,11 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                   <div class="flex items-center gap-2">
                     <span class="text-xs text-slate-500">Per page</span>
                     <select
-                      [value]="categoriesLimit()"
                       (change)="changeCategoriesLimit(+$any($event.target).value)"
                       class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer"
                     >
                       @for (opt of pageSizeOptions; track opt) {
-                        <option [value]="opt">{{ opt }}</option>
+                        <option [value]="opt" [selected]="opt === categoriesLimit()">{{ opt }}</option>
                       }
                     </select>
                   </div>
@@ -439,6 +438,20 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
               </form>
             </div>
 
+            <!-- Status -->
+            <div class="flex items-center justify-between p-4 bg-slate-950/30 border border-slate-800 rounded-2xl">
+              <div>
+                <p class="text-sm font-bold">Status</p>
+                <p class="text-xs text-slate-500 mt-0.5">{{ categoryStatus() ? 'Active — visible to users' : 'Inactive — hidden from users' }}</p>
+              </div>
+              <button type="button" (click)="categoryStatus.update(v => !v)"
+                class="relative w-12 h-6 rounded-full transition-colors flex-shrink-0"
+                [class]="categoryStatus() ? 'bg-primary' : 'bg-slate-700'">
+                <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                  [class.translate-x-6]="categoryStatus()"></span>
+              </button>
+            </div>
+
             <!-- Cover Image -->
             <div class="space-y-4">
               <div class="flex items-center gap-2 text-primary text-[10px] font-bold uppercase tracking-widest">
@@ -529,6 +542,7 @@ export class StoriesManagementComponent implements OnInit {
   isSavingCategory = signal(false);
   categoryError = signal<string | null>(null);
   categoryPhotoPreview = signal<string | null>(null);
+  categoryStatus = signal(true);
   private categoryPhotoFile: File | null = null;
 
   readonly pageSizeOptions = [10, 20, 50, 100];
@@ -547,7 +561,7 @@ export class StoriesManagementComponent implements OnInit {
   }, { allowSignalWrites: true });
 
   storiesPage = signal(1);
-  storiesLimit = signal(20);
+  storiesLimit = signal(10);
   private _storyRefresh = signal(0);
   private _storyParams = computed(() => ({
     page: this.storiesPage(), limit: this.storiesLimit(), _r: this._storyRefresh(),
@@ -579,6 +593,7 @@ export class StoriesManagementComponent implements OnInit {
       return {
         id: story.id, title: translations[0]?.title || 'Untitled',
         photo_url: story.photo_url, audio_url: story.audio_url,
+        status: story.status,
         story_series_id: story.story_series_id,
         category_ids: categoryIds.filter(Boolean),
         storyTranslations: translations,
@@ -600,7 +615,7 @@ export class StoriesManagementComponent implements OnInit {
   }, { allowSignalWrites: true });
 
   categoriesPage = signal(1);
-  categoriesLimit = signal(20);
+  categoriesLimit = signal(10);
   private _catRefresh = signal(0);
   private _catParams = computed(() => ({
     page: this.categoriesPage(), limit: this.categoriesLimit(), _r: this._catRefresh(),
@@ -724,6 +739,7 @@ export class StoriesManagementComponent implements OnInit {
     this.categoryActiveTab.set(0);
     this.categoryPhotoFile = null;
     this.categoryPhotoPreview.set(null);
+    this.categoryStatus.set(true);
     this.categoryError.set(null);
     this.showCategoryModal.set(true);
   }
@@ -742,6 +758,7 @@ export class StoriesManagementComponent implements OnInit {
     this.categoryActiveTab.set(0);
     this.categoryPhotoFile = null;
     this.categoryPhotoPreview.set(cat.photo_url || null);
+    this.categoryStatus.set(cat.status ?? true);
     this.categoryError.set(null);
     this.showCategoryModal.set(true);
   }
@@ -778,7 +795,10 @@ export class StoriesManagementComponent implements OnInit {
       const fd = new FormData();
       fd.append('language_id', t.language_id);
       fd.append('name', t.name);
-      if (isFirst && this.categoryPhotoFile) fd.append('photo', this.categoryPhotoFile);
+      if (isFirst) {
+        fd.append('status', String(this.categoryStatus()));
+        if (this.categoryPhotoFile) fd.append('photo', this.categoryPhotoFile);
+      }
       return fd;
     };
 

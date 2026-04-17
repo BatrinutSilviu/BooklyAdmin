@@ -169,12 +169,11 @@ const EMPTY_PAGE: PaginatedResponse<UserWithDetails> = {
               <div class="flex items-center gap-2">
                 <span class="text-xs text-slate-500">Per page</span>
                 <select
-                  [value]="limit()"
                   (change)="changeLimit(+$any($event.target).value)"
                   class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer"
                 >
                   @for (opt of pageSizeOptions; track opt) {
-                    <option [value]="opt">{{ opt }}</option>
+                    <option [value]="opt" [selected]="opt === limit()">{{ opt }}</option>
                   }
                 </select>
               </div>
@@ -208,7 +207,7 @@ export class UserManagementComponent {
   ];
 
   page = signal(1);
-  limit = signal(20);
+  limit = signal(10);
   nameInput = signal('');
   roleFilter = signal('');
   deleting = signal<string | null>(null);

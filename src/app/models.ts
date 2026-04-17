@@ -30,6 +30,7 @@ export interface CategoryTranslation {
 export interface Category {
   id: number;
   photo_url?: string;
+  status: boolean;
   created_at: string;
   categoryTranslations: CategoryTranslation[];
   _count?: {
@@ -57,6 +58,7 @@ export interface Story {
   title: string;
   photo_url?: string;
   audio_url?: string;
+  status: boolean;
   story_series_id?: number;
   category_ids?: number[];
   language?: Language;

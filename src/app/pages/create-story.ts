@@ -176,6 +176,21 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
             </label>
           </section>
 
+          <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-bold">Status</h3>
+                <p class="text-xs text-slate-500 mt-0.5">{{ storyStatus() ? 'Active — visible to users' : 'Inactive — hidden from users' }}</p>
+              </div>
+              <button type="button" (click)="storyStatus.update(v => !v)"
+                class="relative w-12 h-6 rounded-full transition-colors flex-shrink-0"
+                [class]="storyStatus() ? 'bg-primary' : 'bg-slate-700'">
+                <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                  [class.translate-x-6]="storyStatus()"></span>
+              </button>
+            </div>
+          </section>
+
           <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4">
             <h3 class="font-bold">Categories</h3>
             <div class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
@@ -209,6 +224,7 @@ export class CreateStoryComponent implements OnInit {
   isSubmitting = signal(false);
   error = signal<string | null>(null);
   coverPhotoPreview = signal<string | null>(null);
+  storyStatus = signal(true);
   // Shared across all translations — one entry per page
   pagePhotoFiles = signal<(File | null)[]>([]);
   pagePhotoPreviews = signal<(string | null)[]>([]);
@@ -337,6 +353,7 @@ export class CreateStoryComponent implements OnInit {
     if (!story) { this.translations.push(this.newTranslationGroup(0)); return; }
 
     if (story.photo_url) this.coverPhotoPreview.set(story.photo_url);
+    this.storyStatus.set(story.status ?? true);
     this.selectedCategoryIds.set(story.category_ids ?? []);
 
     const tls = story.storyTranslations ?? [];
@@ -372,6 +389,7 @@ export class CreateStoryComponent implements OnInit {
     if (t.description) fd.append('description', t.description);
 
     if (isFirst) {
+      fd.append('status', String(this.storyStatus()));
       const catIds = this.selectedCategoryIds();
       if (catIds.length > 0) fd.append('category_ids', JSON.stringify(catIds));
       if (this.coverPhotoFile) fd.append('story_photo', this.coverPhotoFile);
