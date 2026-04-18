@@ -75,6 +75,25 @@ export interface Series {
   stories: number[];
 }
 
+export interface StorySeriesStory {
+  id: number;
+  story_id: number;
+  story_series_id: number;
+  story: {
+    id: number;
+    photo_url?: string;
+    status: boolean;
+    storyTranslations: { title: string; language: { id: number; name: string; country_code: string } }[];
+  };
+}
+
+export interface StorySeries {
+  id: number;
+  name: string;
+  created_at?: string;
+  storySeriesStories?: StorySeriesStory[];
+}
+
 export interface Playlist {
   id: number;
   profile_id: number;

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Category, Language, Profile, AuthResponse, UserWithDetails, PaginatedResponse } from './models';
+import { Category, Language, Profile, AuthResponse, UserWithDetails, PaginatedResponse, StorySeries } from './models';
 import { environment } from '../environments/environment';
 
 @Injectable({
@@ -94,6 +94,29 @@ export class ApiService {
 
   deleteStory(id: number): Observable<unknown> {
     return this.http.delete(`${this.baseUrl}/stories/${id}`);
+  }
+
+  // Story Series
+  getStorySeries(page = 1, limit = 20, filters?: { name?: string }): Observable<PaginatedResponse<StorySeries>> {
+    let params = new HttpParams().set('page', page).set('limit', limit);
+    if (filters?.name) params = params.set('name', filters.name);
+    return this.http.get<PaginatedResponse<StorySeries>>(`${this.baseUrl}/story-series`, { params });
+  }
+
+  getStorySeriesById(id: number): Observable<StorySeries> {
+    return this.http.get<StorySeries>(`${this.baseUrl}/story-series/${id}`);
+  }
+
+  createStorySeries(body: { name: string; story_ids?: number[] }): Observable<StorySeries> {
+    return this.http.post<StorySeries>(`${this.baseUrl}/story-series`, body);
+  }
+
+  updateStorySeries(id: number, body: { name?: string; story_ids?: number[] }): Observable<StorySeries> {
+    return this.http.put<StorySeries>(`${this.baseUrl}/story-series/${id}`, body);
+  }
+
+  deleteStorySeries(id: number): Observable<unknown> {
+    return this.http.delete(`${this.baseUrl}/story-series/${id}`);
   }
 
   // Languages

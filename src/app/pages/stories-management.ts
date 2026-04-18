@@ -4,9 +4,9 @@ import { toSignal, toObservable } from '@angular/core/rxjs-interop';
 import { DataService } from '../data.service';
 import { ApiService } from '../api.service';
 import { MatIconModule } from '@angular/material/icon';
-import { RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { Category, Language, Story, StoryTranslation } from '../models';
+import { Category, Language, Story, StorySeries, StoryTranslation } from '../models';
 import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'rxjs';
 
 @Component({
@@ -111,6 +111,15 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
             }
           </select>
         </div>
+      } @else if (activeTab() === 'series') {
+        <div class="flex flex-wrap gap-3">
+          <div class="flex-1 min-w-[200px] relative group">
+            <mat-icon class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors !text-lg">search</mat-icon>
+            <input type="text" placeholder="Search series by name…" [value]="seriesNameInput()"
+              (input)="seriesNameInput.set($any($event.target).value)"
+              class="w-full bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"/>
+          </div>
+        </div>
       }
 
       <!-- Content Tables -->
@@ -180,9 +189,15 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                       </div>
                     </td>
                     <td class="px-6 py-4 text-right">
-                      <div class="flex justify-end gap-4">
-                        <button [routerLink]="['/stories/edit', story.id]" class="text-xs font-bold text-primary hover:underline">Edit</button>
-                        <button (click)="requestDelete(story.id, 'story', story.title)" class="text-xs font-bold text-rose-400 hover:underline">Delete</button>
+                      <div class="flex justify-end gap-2">
+                        <button [routerLink]="['/stories/edit', story.id]" title="Edit story"
+                          class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all">
+                          <mat-icon class="!text-base">edit</mat-icon>
+                        </button>
+                        <button (click)="requestDelete(story.id, 'story', story.title)" title="Delete story"
+                          class="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
+                          <mat-icon class="!text-base">delete</mat-icon>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -278,9 +293,15 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                       </span>
                     </td>
                     <td class="px-6 py-4 text-right">
-                      <div class="flex justify-end gap-4">
-                        <button (click)="editCategory(cat)" class="text-xs font-bold text-primary hover:underline">Edit</button>
-                        <button (click)="requestDelete(cat.id, 'category', cat.categoryTranslations?.[0]?.name || 'Category')" class="text-xs font-bold text-rose-400 hover:underline">Delete</button>
+                      <div class="flex justify-end gap-2">
+                        <button (click)="editCategory(cat)" title="Edit category"
+                          class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all">
+                          <mat-icon class="!text-base">edit</mat-icon>
+                        </button>
+                        <button (click)="requestDelete(cat.id, 'category', cat.categoryTranslations?.[0]?.name || 'Category')" title="Delete category"
+                          class="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
+                          <mat-icon class="!text-base">delete</mat-icon>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -324,44 +345,83 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
             }
             }
           } @else if (activeTab() === 'series') {
+            @if (isLoadingSeries()) {
+              <div class="flex items-center justify-center py-16 gap-3 text-slate-500">
+                <mat-icon class="animate-spin">autorenew</mat-icon>
+                <span class="text-sm">Loading series...</span>
+              </div>
+            } @else {
             <table class="w-full text-left">
               <thead class="bg-slate-800/30 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
                 <tr>
-                  <th class="px-6 py-4">Series Title</th>
+                  <th class="px-6 py-4">ID</th>
+                  <th class="px-6 py-4">Name</th>
                   <th class="px-6 py-4">Stories</th>
-                  <th class="px-6 py-4">Rating</th>
-                  <th class="px-6 py-4">Status</th>
                   <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800">
-                @for (s of series(); track s.id) {
+                @for (s of seriesList(); track s.id) {
                   <tr class="hover:bg-slate-800/20 transition-colors group">
+                    <td class="px-6 py-4 text-sm font-mono text-slate-500">#{{ s.id }}</td>
                     <td class="px-6 py-4">
-                      <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
-                          <img src="https://picsum.photos/seed/series-{{s.id}}/100/100" class="w-full h-full object-cover" referrerpolicy="no-referrer" alt="Series Cover" />
-                        </div>
-                        <span class="text-sm font-bold">{{ s.titles['en'] }}</span>
-                      </div>
+                      <span class="text-sm font-bold">{{ s.name }}</span>
                     </td>
-                    <td class="px-6 py-4 text-sm text-slate-400">{{ s.stories.length }} Stories</td>
-                    <td class="px-6 py-4 text-sm text-slate-400">{{ s.contentRating }}</td>
                     <td class="px-6 py-4">
-                      <span class="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase tracking-wider">
-                        {{ s.status }}
-                      </span>
+                      <span class="text-sm font-bold text-white">{{ s.storySeriesStories?.length ?? 0 }}</span>
                     </td>
                     <td class="px-6 py-4 text-right">
-                      <div class="flex justify-end gap-4">
-                        <button [routerLink]="['/series/edit', s.id]" class="text-xs font-bold text-primary hover:underline">Edit</button>
-                        <button (click)="requestDelete(s.id, 'series', s.titles['en'])" class="text-xs font-bold text-rose-400 hover:underline">Delete</button>
+                      <div class="flex justify-end gap-2">
+                        <button [routerLink]="['/series/edit', s.id]" title="Edit series"
+                          class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all">
+                          <mat-icon class="!text-base">edit</mat-icon>
+                        </button>
+                        <button (click)="requestDelete(s.id, 'series', s.name)" title="Delete series"
+                          class="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
+                          <mat-icon class="!text-base">delete</mat-icon>
+                        </button>
                       </div>
                     </td>
                   </tr>
                 }
+                @empty {
+                  <tr>
+                    <td colspan="4" class="px-6 py-12 text-center text-slate-500 text-sm">No series found.</td>
+                  </tr>
+                }
               </tbody>
             </table>
+            @if (seriesTotal() > 0) {
+              <div class="flex items-center justify-between px-6 py-4 border-t border-slate-800">
+                <span class="text-xs text-slate-500">{{ seriesTotal() }} series · Page {{ seriesPage() }} of {{ seriesTotalPages() }}</span>
+                <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">Per page</span>
+                    <select
+                      (change)="changeSeriesLimit(+$any($event.target).value)"
+                      class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer"
+                    >
+                      @for (opt of pageSizeOptions; track opt) {
+                        <option [value]="opt" [selected]="opt === seriesLimit()">{{ opt }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      (click)="changeSeriesPage(seriesPage() - 1)"
+                      [disabled]="seriesPage() === 1"
+                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
+                    ><mat-icon class="!text-sm">chevron_left</mat-icon>Prev</button>
+                    <button
+                      (click)="changeSeriesPage(seriesPage() + 1)"
+                      [disabled]="seriesPage() === seriesTotalPages()"
+                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
+                    >Next<mat-icon class="!text-sm">chevron_right</mat-icon></button>
+                  </div>
+                </div>
+              </div>
+            }
+            }
           }
         </div>
       </div>
@@ -533,6 +593,7 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
 export class StoriesManagementComponent implements OnInit {
   data = inject(DataService);
   private api = inject(ApiService);
+  private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
 
   activeTab = signal('stories');
@@ -648,7 +709,37 @@ export class StoriesManagementComponent implements OnInit {
   showDeleteModal = signal(false);
   itemToDelete = signal<{ id: string, type: 'story' | 'category' | 'series', name: string } | null>(null);
 
-  series = computed(() => this.data.series());
+  // --- Series reactive loading ---
+  seriesNameInput = signal('');
+  private _seriesNameD = toSignal(
+    toObservable(this.seriesNameInput).pipe(debounceTime(350)),
+    { initialValue: '' }
+  );
+  private _resetSeriesPage = effect(() => {
+    this._seriesNameD();
+    this.seriesPage.set(1);
+  }, { allowSignalWrites: true });
+
+  seriesPage = signal(1);
+  seriesLimit = signal(10);
+  private _seriesRefresh = signal(0);
+  private _seriesParams = computed(() => ({
+    page: this.seriesPage(), limit: this.seriesLimit(), _r: this._seriesRefresh(),
+    name: this._seriesNameD() || undefined,
+  }));
+  private _seriesResponse = toSignal(
+    toObservable(this._seriesParams).pipe(
+      switchMap(({ page, limit, name }) =>
+        this.api.getStorySeries(page, limit, { name }).pipe(
+          catchError(() => of({ data: [] as StorySeries[], pagination: { total: 0, page: 1, limit, totalPages: 0 } }))
+        )
+      )
+    )
+  );
+  isLoadingSeries = computed(() => this._seriesResponse() === undefined);
+  seriesTotal = computed(() => this._seriesResponse()?.pagination.total ?? 0);
+  seriesTotalPages = computed(() => this._seriesResponse()?.pagination.totalPages ?? 1);
+  seriesList = computed(() => this._seriesResponse()?.data ?? []);
 
 
   categoryActiveTab = signal(0);
@@ -692,9 +783,9 @@ export class StoriesManagementComponent implements OnInit {
 
   ngOnInit() {
     this.api.getLanguages().subscribe(langs => this.languages.set(langs));
-    // Populate lookup so category names resolve in the stories tab
-    // (reactive chains for stories/categories auto-start via toSignal)
     this.api.getCategories(1, 100).subscribe(res => this.categoriesLookup.set(res.data));
+    const tab = this.route.snapshot.queryParamMap.get('tab');
+    if (tab) this.activeTab.set(tab);
   }
 
   changeStoriesPage(page: number) {
@@ -715,6 +806,16 @@ export class StoriesManagementComponent implements OnInit {
   changeCategoriesLimit(limit: number) {
     this.categoriesLimit.set(limit);
     this.categoriesPage.set(1);
+  }
+
+  changeSeriesPage(page: number) {
+    if (page < 1 || page > this.seriesTotalPages()) return;
+    this.seriesPage.set(page);
+  }
+
+  changeSeriesLimit(limit: number) {
+    this.seriesLimit.set(limit);
+    this.seriesPage.set(1);
   }
 
   getCategoryLabel(categoryId?: number): string {
@@ -811,6 +912,7 @@ export class StoriesManagementComponent implements OnInit {
           const last = results[results.length - 1] as Category;
           this.data.updateCategory(last);
           this.categoriesLookup.update(cats => cats.map(c => c.id === last.id ? last : c));
+          this._catRefresh.update(n => n + 1);
           this.isSavingCategory.set(false);
           this.closeCategoryModal();
         },
@@ -872,7 +974,7 @@ export class StoriesManagementComponent implements OnInit {
     let request$;
     if (item.type === 'story') request$ = this.api.deleteStory(id);
     else if (item.type === 'category') request$ = this.api.deleteCategory(id);
-    else { this.data.deleteSeries(id); this.closeDeleteModal(); this.isDeleting.set(false); return; }
+    else request$ = this.api.deleteStorySeries(id);
 
     request$.subscribe({
       next: () => {
@@ -887,6 +989,11 @@ export class StoriesManagementComponent implements OnInit {
             ? this.categoriesPage() - 1 : this.categoriesPage();
           if (prevPage !== this.categoriesPage()) this.categoriesPage.set(prevPage);
           else this._catRefresh.update(n => n + 1);
+        } else if (item.type === 'series') {
+          const prevPage = this.seriesList().length === 1 && this.seriesPage() > 1
+            ? this.seriesPage() - 1 : this.seriesPage();
+          if (prevPage !== this.seriesPage()) this.seriesPage.set(prevPage);
+          else this._seriesRefresh.update(n => n + 1);
         }
         this.isDeleting.set(false);
         this.closeDeleteModal();
