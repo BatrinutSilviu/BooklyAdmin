@@ -6,11 +6,11 @@ import { ApiService } from '../api.service';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { Category, Language, Story, StorySeries, StoryTranslation } from '../models';
+import { Book, Category, BookTranslation, Language } from '../models';
 import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'rxjs';
 
 @Component({
-  selector: 'app-stories-management',
+  selector: 'app-books-management',
   standalone: true,
   imports: [CommonModule, MatIconModule, RouterLink, ReactiveFormsModule],
   template: `
@@ -18,23 +18,18 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
       <div class="flex justify-between items-end">
         <div>
           <h1 class="text-3xl font-bold tracking-tight">Content Management</h1>
-          <p class="text-slate-400 mt-1">Manage your stories, categories, and series library.</p>
+          <p class="text-slate-400 mt-1">Manage your books and categories library.</p>
         </div>
         <div class="flex gap-3">
-          @if (activeTab() === 'stories') {
-            <button routerLink="/stories/new" class="bg-primary hover:bg-primary/90 text-white font-bold py-2.5 px-6 rounded-xl flex items-center gap-2 shadow-lg shadow-primary/20 transition-all">
+          @if (activeTab() === 'books') {
+            <button routerLink="/books/new" class="bg-primary hover:bg-primary/90 text-white font-bold py-2.5 px-6 rounded-xl flex items-center gap-2 shadow-lg shadow-primary/20 transition-all">
               <mat-icon>add</mat-icon>
-              New Story
+              New Book
             </button>
           } @else if (activeTab() === 'categories') {
             <button (click)="openCategoryModal()" class="bg-primary hover:bg-primary/90 text-white font-bold py-2.5 px-6 rounded-xl flex items-center gap-2 shadow-lg shadow-primary/20 transition-all">
               <mat-icon>add</mat-icon>
               New Category
-            </button>
-          } @else if (activeTab() === 'series') {
-            <button routerLink="/series/new" class="bg-primary hover:bg-primary/90 text-white font-bold py-2.5 px-6 rounded-xl flex items-center gap-2 shadow-lg shadow-primary/20 transition-all">
-              <mat-icon>add</mat-icon>
-              New Series
             </button>
           }
         </div>
@@ -42,51 +37,41 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
 
       <!-- Tabs -->
       <div class="flex gap-8 border-b border-slate-800">
-        <button 
-          (click)="activeTab.set('stories')" 
-          [class.text-primary]="activeTab() === 'stories'"
-          [class.border-primary]="activeTab() === 'stories'"
-          class="pb-4 px-2 text-sm font-bold border-b-2 border-transparent transition-all"
-        >
-          Stories
+        <button
+          (click)="activeTab.set('books')"
+          [class.text-primary]="activeTab() === 'books'"
+          [class.border-primary]="activeTab() === 'books'"
+          class="pb-4 px-2 text-sm font-bold border-b-2 border-transparent transition-all">
+          Books
         </button>
-        <button 
-          (click)="activeTab.set('categories')" 
+        <button
+          (click)="activeTab.set('categories')"
           [class.text-primary]="activeTab() === 'categories'"
           [class.border-primary]="activeTab() === 'categories'"
-          class="pb-4 px-2 text-sm font-bold border-b-2 border-transparent transition-all"
-        >
+          class="pb-4 px-2 text-sm font-bold border-b-2 border-transparent transition-all">
           Categories
-        </button>
-        <button 
-          (click)="activeTab.set('series')" 
-          [class.text-primary]="activeTab() === 'series'"
-          [class.border-primary]="activeTab() === 'series'"
-          class="pb-4 px-2 text-sm font-bold border-b-2 border-transparent transition-all"
-        >
-          Series
         </button>
       </div>
 
       <!-- Filters (per-tab) -->
-      @if (activeTab() === 'stories') {
+      @if (activeTab() === 'books') {
         <div class="flex flex-wrap gap-3">
           <div class="flex-1 min-w-[200px] relative group">
             <mat-icon class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors !text-lg">search</mat-icon>
-            <input type="text" placeholder="Search stories by title…" [value]="storiesNameInput()"
-              (input)="storiesNameInput.set($any($event.target).value)"
+            <input type="text" placeholder="Search books by title…" [value]="booksNameInput()"
+              (input)="booksNameInput.set($any($event.target).value)"
               class="w-full bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"/>
           </div>
-          <select [value]="storiesLanguageId() ?? ''"
-            (change)="storiesLanguageId.set(+$any($event.target).value || null); storiesPage.set(1)"
+          <select [value]="booksLanguageId() ?? ''"
+            (change)="booksLanguageId.set(+$any($event.target).value || null); booksPage.set(1)"
             class="bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-300 outline-none focus:border-primary cursor-pointer">
             <option value="">All Languages</option>
             @for (lang of languages(); track lang.id) {
               <option [value]="lang.id">{{ lang.name }}</option>
             }
           </select>
-          <select [value]="storiesCategoryId() ?? ''"
-            (change)="storiesCategoryId.set(+$any($event.target).value || null); storiesPage.set(1)"
+          <select [value]="booksCategoryId() ?? ''"
+            (change)="booksCategoryId.set(+$any($event.target).value || null); booksPage.set(1)"
             class="bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 px-4 text-sm text-slate-300 outline-none focus:border-primary cursor-pointer">
             <option value="">All Categories</option>
             @for (cat of categoriesLookup(); track cat.id) {
@@ -111,25 +96,16 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
             }
           </select>
         </div>
-      } @else if (activeTab() === 'series') {
-        <div class="flex flex-wrap gap-3">
-          <div class="flex-1 min-w-[200px] relative group">
-            <mat-icon class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors !text-lg">search</mat-icon>
-            <input type="text" placeholder="Search series by name…" [value]="seriesNameInput()"
-              (input)="seriesNameInput.set($any($event.target).value)"
-              class="w-full bg-slate-900/40 border border-slate-800 rounded-xl py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"/>
-          </div>
-        </div>
       }
 
       <!-- Content Tables -->
       <div class="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
         <div class="overflow-x-auto">
-          @if (activeTab() === 'stories') {
-            @if (isLoadingStories()) {
+          @if (activeTab() === 'books') {
+            @if (isLoadingBooks()) {
               <div class="flex items-center justify-center py-16 gap-3 text-slate-500">
                 <mat-icon class="animate-spin">autorenew</mat-icon>
-                <span class="text-sm">Loading stories...</span>
+                <span class="text-sm">Loading books...</span>
               </div>
             } @else {
             <table class="w-full text-left">
@@ -138,26 +114,27 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                   <th class="px-6 py-4">Cover</th>
                   <th class="px-6 py-4">Translations</th>
                   <th class="px-6 py-4">Categories</th>
+                  <th class="px-6 py-4">Duration</th>
                   <th class="px-6 py-4">Status</th>
                   <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800">
-                @for (story of data.stories(); track story.id) {
+                @for (book of data.books(); track book.id) {
                   <tr class="hover:bg-slate-800/20 transition-colors group align-top">
                     <td class="px-6 py-4">
-                      <div class="w-12 h-12 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
+                      <div class="w-12 h-16 rounded-lg bg-slate-800 overflow-hidden flex-shrink-0">
                         <img
-                          [src]="story.photo_url || 'https://placehold.co/100x100/1e293b/64748b?text=S'"
-                          (error)="$any($event.target).src='https://placehold.co/100x100/1e293b/64748b?text=S'"
+                          [src]="book.photo_url || 'https://placehold.co/100x133/1e293b/64748b?text=B'"
+                          (error)="$any($event.target).src='https://placehold.co/100x133/1e293b/64748b?text=B'"
                           class="w-full h-full object-cover"
-                          alt="Story Cover"
+                          alt="Book Cover"
                         />
                       </div>
                     </td>
                     <td class="px-6 py-4">
                       <div class="flex flex-col gap-1.5">
-                        @for (t of (story.storyTranslations ?? []); track t.id) {
+                        @for (t of (book.bookTranslations ?? []); track t.id) {
                           <div class="flex items-center gap-2">
                             <span class="px-1.5 py-0.5 bg-slate-800 text-slate-400 text-[9px] font-bold rounded uppercase tracking-wider flex-shrink-0">
                               {{ t.language.country_code }}
@@ -172,7 +149,7 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                     </td>
                     <td class="px-6 py-4">
                       <div class="flex flex-wrap gap-1">
-                        @for (catId of (story.category_ids ?? []); track catId) {
+                        @for (catId of (book.category_ids ?? []); track catId) {
                           <span class="px-2 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded uppercase tracking-wider">
                             {{ getCategoryLabel(catId) }}
                           </span>
@@ -182,19 +159,22 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                         }
                       </div>
                     </td>
+                    <td class="px-6 py-4 text-sm text-slate-400">
+                      {{ book.duration ? book.duration + ' min' : '—' }}
+                    </td>
                     <td class="px-6 py-4">
                       <div class="flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full" [class]="story.status ? 'bg-emerald-400' : 'bg-slate-500'"></span>
-                        <span class="text-sm text-slate-300">{{ story.status ? 'Active' : 'Inactive' }}</span>
+                        <span class="w-1.5 h-1.5 rounded-full" [class]="book.status ? 'bg-emerald-400' : 'bg-slate-500'"></span>
+                        <span class="text-sm text-slate-300">{{ book.status ? 'Active' : 'Inactive' }}</span>
                       </div>
                     </td>
                     <td class="px-6 py-4 text-right">
                       <div class="flex justify-end gap-2">
-                        <button [routerLink]="['/stories/edit', story.id]" title="Edit story"
+                        <button [routerLink]="['/books/edit', book.id]" title="Edit book"
                           class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all">
                           <mat-icon class="!text-base">edit</mat-icon>
                         </button>
-                        <button (click)="requestDelete(story.id, 'story', story.title)" title="Delete story"
+                        <button (click)="requestDelete(book.id, 'book', book.bookTranslations?.[0]?.title ?? 'Untitled')" title="Delete book"
                           class="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
                           <mat-icon class="!text-base">delete</mat-icon>
                         </button>
@@ -204,37 +184,34 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                 }
                 @empty {
                   <tr>
-                    <td colspan="5" class="px-6 py-12 text-center text-slate-500 text-sm">No stories found.</td>
+                    <td colspan="6" class="px-6 py-12 text-center text-slate-500 text-sm">No books found.</td>
                   </tr>
                 }
               </tbody>
             </table>
-            @if (storiesTotal() > 0) {
+            @if (booksTotal() > 0) {
               <div class="flex items-center justify-between px-6 py-4 border-t border-slate-800">
-                <span class="text-xs text-slate-500">{{ storiesTotal() }} stories · Page {{ storiesPage() }} of {{ storiesTotalPages() }}</span>
+                <span class="text-xs text-slate-500">{{ booksTotal() }} books · Page {{ booksPage() }} of {{ booksTotalPages() }}</span>
                 <div class="flex items-center gap-3">
                   <div class="flex items-center gap-2">
                     <span class="text-xs text-slate-500">Per page</span>
                     <select
-                      (change)="changeStoriesLimit(+$any($event.target).value)"
-                      class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer"
-                    >
+                      (change)="changeBooksLimit(+$any($event.target).value)"
+                      class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer">
                       @for (opt of pageSizeOptions; track opt) {
-                        <option [value]="opt" [selected]="opt === storiesLimit()">{{ opt }}</option>
+                        <option [value]="opt" [selected]="opt === booksLimit()">{{ opt }}</option>
                       }
                     </select>
                   </div>
                   <div class="flex items-center gap-2">
-                    <button
-                      (click)="changeStoriesPage(storiesPage() - 1)"
-                      [disabled]="storiesPage() === 1"
-                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
-                    ><mat-icon class="!text-sm">chevron_left</mat-icon>Prev</button>
-                    <button
-                      (click)="changeStoriesPage(storiesPage() + 1)"
-                      [disabled]="storiesPage() === storiesTotalPages()"
-                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
-                    >Next<mat-icon class="!text-sm">chevron_right</mat-icon></button>
+                    <button (click)="changeBooksPage(booksPage() - 1)" [disabled]="booksPage() === 1"
+                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1">
+                      <mat-icon class="!text-sm">chevron_left</mat-icon>Prev
+                    </button>
+                    <button (click)="changeBooksPage(booksPage() + 1)" [disabled]="booksPage() === booksTotalPages()"
+                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1">
+                      Next<mat-icon class="!text-sm">chevron_right</mat-icon>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -252,7 +229,7 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                 <tr>
                   <th class="px-6 py-4">Cover</th>
                   <th class="px-6 py-4">Translations</th>
-                  <th class="px-6 py-4">Stories</th>
+                  <th class="px-6 py-4">Books</th>
                   <th class="px-6 py-4">Status</th>
                   <th class="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -285,7 +262,7 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                         }
                       </div>
                     </td>
-                    <td class="px-6 py-4 text-sm text-slate-400">{{ cat._count?.storyCategories || 0 }}</td>
+                    <td class="px-6 py-4 text-sm text-slate-400">{{ cat._count?.bookCategories || 0 }}</td>
                     <td class="px-6 py-4">
                       <span class="px-2 py-1 text-[10px] font-bold rounded uppercase tracking-wider"
                         [class]="cat.status ? 'bg-emerald-400/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'">
@@ -321,102 +298,21 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                     <span class="text-xs text-slate-500">Per page</span>
                     <select
                       (change)="changeCategoriesLimit(+$any($event.target).value)"
-                      class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer"
-                    >
+                      class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer">
                       @for (opt of pageSizeOptions; track opt) {
                         <option [value]="opt" [selected]="opt === categoriesLimit()">{{ opt }}</option>
                       }
                     </select>
                   </div>
                   <div class="flex items-center gap-2">
-                    <button
-                      (click)="changeCategoriesPage(categoriesPage() - 1)"
-                      [disabled]="categoriesPage() === 1"
-                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
-                    ><mat-icon class="!text-sm">chevron_left</mat-icon>Prev</button>
-                    <button
-                      (click)="changeCategoriesPage(categoriesPage() + 1)"
-                      [disabled]="categoriesPage() === categoriesTotalPages()"
-                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
-                    >Next<mat-icon class="!text-sm">chevron_right</mat-icon></button>
-                  </div>
-                </div>
-              </div>
-            }
-            }
-          } @else if (activeTab() === 'series') {
-            @if (isLoadingSeries()) {
-              <div class="flex items-center justify-center py-16 gap-3 text-slate-500">
-                <mat-icon class="animate-spin">autorenew</mat-icon>
-                <span class="text-sm">Loading series...</span>
-              </div>
-            } @else {
-            <table class="w-full text-left">
-              <thead class="bg-slate-800/30 text-slate-500 text-[10px] font-bold uppercase tracking-wider">
-                <tr>
-                  <th class="px-6 py-4">ID</th>
-                  <th class="px-6 py-4">Name</th>
-                  <th class="px-6 py-4">Stories</th>
-                  <th class="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-800">
-                @for (s of seriesList(); track s.id) {
-                  <tr class="hover:bg-slate-800/20 transition-colors group">
-                    <td class="px-6 py-4 text-sm font-mono text-slate-500">#{{ s.id }}</td>
-                    <td class="px-6 py-4">
-                      <span class="text-sm font-bold">{{ s.name }}</span>
-                    </td>
-                    <td class="px-6 py-4">
-                      <span class="text-sm font-bold text-white">{{ s.storySeriesStories?.length ?? 0 }}</span>
-                    </td>
-                    <td class="px-6 py-4 text-right">
-                      <div class="flex justify-end gap-2">
-                        <button [routerLink]="['/series/edit', s.id]" title="Edit series"
-                          class="w-8 h-8 flex items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all">
-                          <mat-icon class="!text-base">edit</mat-icon>
-                        </button>
-                        <button (click)="requestDelete(s.id, 'series', s.name)" title="Delete series"
-                          class="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all">
-                          <mat-icon class="!text-base">delete</mat-icon>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                }
-                @empty {
-                  <tr>
-                    <td colspan="4" class="px-6 py-12 text-center text-slate-500 text-sm">No series found.</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-            @if (seriesTotal() > 0) {
-              <div class="flex items-center justify-between px-6 py-4 border-t border-slate-800">
-                <span class="text-xs text-slate-500">{{ seriesTotal() }} series · Page {{ seriesPage() }} of {{ seriesTotalPages() }}</span>
-                <div class="flex items-center gap-3">
-                  <div class="flex items-center gap-2">
-                    <span class="text-xs text-slate-500">Per page</span>
-                    <select
-                      (change)="changeSeriesLimit(+$any($event.target).value)"
-                      class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 outline-none focus:border-primary cursor-pointer"
-                    >
-                      @for (opt of pageSizeOptions; track opt) {
-                        <option [value]="opt" [selected]="opt === seriesLimit()">{{ opt }}</option>
-                      }
-                    </select>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <button
-                      (click)="changeSeriesPage(seriesPage() - 1)"
-                      [disabled]="seriesPage() === 1"
-                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
-                    ><mat-icon class="!text-sm">chevron_left</mat-icon>Prev</button>
-                    <button
-                      (click)="changeSeriesPage(seriesPage() + 1)"
-                      [disabled]="seriesPage() === seriesTotalPages()"
-                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1"
-                    >Next<mat-icon class="!text-sm">chevron_right</mat-icon></button>
+                    <button (click)="changeCategoriesPage(categoriesPage() - 1)" [disabled]="categoriesPage() === 1"
+                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1">
+                      <mat-icon class="!text-sm">chevron_left</mat-icon>Prev
+                    </button>
+                    <button (click)="changeCategoriesPage(categoriesPage() + 1)" [disabled]="categoriesPage() === categoriesTotalPages()"
+                      class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold transition-all flex items-center gap-1">
+                      Next<mat-icon class="!text-sm">chevron_right</mat-icon>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -430,7 +326,7 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
     <!-- Category Modal -->
     @if (showCategoryModal()) {
       <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden">
           <div class="p-6 border-b border-slate-800 flex justify-between items-center">
             <div>
               <h2 class="text-xl font-bold">{{ editingCategory() ? 'Edit Category' : 'Create New Category' }}</h2>
@@ -460,9 +356,7 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
                     {{ getCategoryTabLabel(ti) }}
                     @if (categoryTranslations.length > 1) {
                       <span (click)="$event.stopPropagation(); removeCategoryTranslation(ti)"
-                        class="w-4 h-4 flex items-center justify-center rounded-full text-slate-500 hover:bg-rose-500 hover:text-white transition-colors text-xs leading-none ml-1">
-                        ✕
-                      </span>
+                        class="w-4 h-4 flex items-center justify-center rounded-full text-slate-500 hover:bg-rose-500 hover:text-white transition-colors text-xs leading-none ml-1">✕</span>
                     }
                   </button>
                 }
@@ -548,38 +442,29 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
     <!-- Delete Confirmation Modal -->
     @if (showDeleteModal()) {
       <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
           <div class="p-8 text-center space-y-6">
             <div class="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto shadow-inner">
               <mat-icon class="!text-4xl">delete_forever</mat-icon>
             </div>
-            
             <div class="space-y-2">
               <h2 class="text-2xl font-bold">Confirm Deletion</h2>
               <p class="text-slate-400 text-sm leading-relaxed">
-                Are you sure you want to delete <span class="text-white font-bold">"{{ itemToDelete()?.name }}"</span>? 
+                Are you sure you want to delete <span class="text-white font-bold">"{{ itemToDelete()?.name }}"</span>?
                 This action is permanent and cannot be undone.
               </p>
             </div>
-
             @if (deleteError()) {
               <div class="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-sm">{{ deleteError() }}</div>
             }
-
             <div class="flex flex-col gap-3 pt-4">
-              <button
-                (click)="confirmDelete()"
-                [disabled]="isDeleting()"
-                class="w-full py-3.5 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-lg shadow-rose-500/20 transition-all flex items-center justify-center gap-2"
-              >
+              <button (click)="confirmDelete()" [disabled]="isDeleting()"
+                class="w-full py-3.5 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-lg shadow-rose-500/20 transition-all flex items-center justify-center gap-2">
                 <mat-icon class="!text-lg">{{ isDeleting() ? 'autorenew' : 'delete' }}</mat-icon>
                 {{ isDeleting() ? 'Deleting...' : 'Delete Permanently' }}
               </button>
-              <button
-                (click)="closeDeleteModal()"
-                [disabled]="isDeleting()"
-                class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 font-bold rounded-2xl transition-all"
-              >
+              <button (click)="closeDeleteModal()" [disabled]="isDeleting()"
+                class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 font-bold rounded-2xl transition-all">
                 Keep it for now
               </button>
             </div>
@@ -590,13 +475,13 @@ import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'r
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class StoriesManagementComponent implements OnInit {
+export class BooksManagementComponent implements OnInit {
   data = inject(DataService);
   private api = inject(ApiService);
   private route = inject(ActivatedRoute);
   private fb = inject(FormBuilder);
 
-  activeTab = signal('stories');
+  activeTab = signal('books');
   showCategoryModal = signal(false);
   editingCategory = signal<Category | null>(null);
   languages = signal<Language[]>([]);
@@ -608,59 +493,59 @@ export class StoriesManagementComponent implements OnInit {
 
   readonly pageSizeOptions = [10, 20, 50, 100];
 
-  // --- Stories reactive loading (switchMap cancels stale in-flight requests) ---
-  storiesNameInput = signal('');
-  storiesLanguageId = signal<number | null>(null);
-  storiesCategoryId = signal<number | null>(null);
-  private _storiesNameD = toSignal(
-    toObservable(this.storiesNameInput).pipe(debounceTime(350)),
+  // --- Books reactive loading ---
+  booksNameInput = signal('');
+  booksLanguageId = signal<number | null>(null);
+  booksCategoryId = signal<number | null>(null);
+  private _booksNameD = toSignal(
+    toObservable(this.booksNameInput).pipe(debounceTime(350)),
     { initialValue: '' }
   );
-  private _resetStoryPage = effect(() => {
-    this._storiesNameD(); this.storiesLanguageId(); this.storiesCategoryId();
-    this.storiesPage.set(1);
+  private _resetBooksPage = effect(() => {
+    this._booksNameD(); this.booksLanguageId(); this.booksCategoryId();
+    this.booksPage.set(1);
   }, { allowSignalWrites: true });
 
-  storiesPage = signal(1);
-  storiesLimit = signal(10);
-  private _storyRefresh = signal(0);
-  private _storyParams = computed(() => ({
-    page: this.storiesPage(), limit: this.storiesLimit(), _r: this._storyRefresh(),
-    name: this._storiesNameD() || undefined,
-    languageId: this.storiesLanguageId() ?? undefined,
-    categoryId: this.storiesCategoryId() ?? undefined,
+  booksPage = signal(1);
+  booksLimit = signal(10);
+  private _bookRefresh = signal(0);
+  private _bookParams = computed(() => ({
+    page: this.booksPage(), limit: this.booksLimit(), _r: this._bookRefresh(),
+    name: this._booksNameD() || undefined,
+    languageId: this.booksLanguageId() ?? undefined,
+    categoryId: this.booksCategoryId() ?? undefined,
   }));
-  private _storyRaw = toSignal(
-    toObservable(this._storyParams).pipe(
+  private _bookRaw = toSignal(
+    toObservable(this._bookParams).pipe(
       switchMap(({ page, limit, name, languageId, categoryId }) =>
-        this.api.getAllStories(page, limit, { name, languageId, categoryId }).pipe(
+        this.api.getAllBooks(page, limit, { name, languageId, categoryId }).pipe(
           catchError(() => of({ data: [] as unknown[], pagination: { total: 0, page: 1, limit, totalPages: 0 } }))
         )
       )
     )
   );
-  isLoadingStories = computed(() => this._storyRaw() === undefined);
-  storiesTotal = computed(() => this._storyRaw()?.pagination.total ?? 0);
-  storiesTotalPages = computed(() => this._storyRaw()?.pagination.totalPages ?? 1);
-  private _syncStories = effect(() => {
-    const res = this._storyRaw();
+  isLoadingBooks = computed(() => this._bookRaw() === undefined);
+  booksTotal = computed(() => this._bookRaw()?.pagination.total ?? 0);
+  booksTotalPages = computed(() => this._bookRaw()?.pagination.totalPages ?? 1);
+  private _syncBooks = effect(() => {
+    const res = this._bookRaw();
     if (!res) return;
-    const mapped: Story[] = (res.data as any[]).map((story: any) => {
-      const translations: StoryTranslation[] = (story.storyTranslations ?? []).map((t: any) => ({
+    const mapped: Book[] = (res.data as any[]).map((book: any) => {
+      const translations: BookTranslation[] = (book.bookTranslations ?? []).map((t: any) => ({
         id: t.id, title: t.title, description: t.description,
-        language: t.language, storyPages: t.storyPages ?? [],
+        language: t.language, bookPages: t.bookPages ?? [],
       }));
-      const categoryIds: number[] = (story.storyCategories ?? []).map((sc: any) => sc.category?.id ?? sc.category_id);
+      const categoryIds: number[] = (book.bookCategories ?? []).map((bc: any) => bc.category?.id ?? bc.category_id);
       return {
-        id: story.id, title: translations[0]?.title || 'Untitled',
-        photo_url: story.photo_url, audio_url: story.audio_url,
-        status: story.status,
-        story_series_id: story.story_series_id,
+        id: book.id,
+        photo_url: book.photo_url,
+        duration: book.duration,
+        status: book.status,
         category_ids: categoryIds.filter(Boolean),
-        storyTranslations: translations,
-      } as Story;
+        bookTranslations: translations,
+      } as Book;
     });
-    this.data.stories.set(mapped);
+    this.data.books.set(mapped);
   }, { allowSignalWrites: true });
 
   // --- Categories reactive loading ---
@@ -695,55 +580,21 @@ export class StoriesManagementComponent implements OnInit {
   isLoadingCategories = computed(() => this._catResponse() === undefined);
   categoriesTotal = computed(() => this._catResponse()?.pagination.total ?? 0);
   categoriesTotalPages = computed(() => this._catResponse()?.pagination.totalPages ?? 1);
-  // Local computed for template display (reactive, no stale-data race)
   categories = computed(() => this._catResponse()?.data ?? []);
   private _syncCats = effect(() => {
     const res = this._catResponse();
-    if (res) this.data.categories.set(res.data); // keep DataService in sync for CreateStory sidebar
+    if (res) this.data.categories.set(res.data);
   }, { allowSignalWrites: true });
 
-  // Full category list for resolving labels and populating the category filter dropdown
   categoriesLookup = signal<Category[]>([]);
 
   // Delete Modal State
   showDeleteModal = signal(false);
-  itemToDelete = signal<{ id: string, type: 'story' | 'category' | 'series', name: string } | null>(null);
-
-  // --- Series reactive loading ---
-  seriesNameInput = signal('');
-  private _seriesNameD = toSignal(
-    toObservable(this.seriesNameInput).pipe(debounceTime(350)),
-    { initialValue: '' }
-  );
-  private _resetSeriesPage = effect(() => {
-    this._seriesNameD();
-    this.seriesPage.set(1);
-  }, { allowSignalWrites: true });
-
-  seriesPage = signal(1);
-  seriesLimit = signal(10);
-  private _seriesRefresh = signal(0);
-  private _seriesParams = computed(() => ({
-    page: this.seriesPage(), limit: this.seriesLimit(), _r: this._seriesRefresh(),
-    name: this._seriesNameD() || undefined,
-  }));
-  private _seriesResponse = toSignal(
-    toObservable(this._seriesParams).pipe(
-      switchMap(({ page, limit, name }) =>
-        this.api.getStorySeries(page, limit, { name }).pipe(
-          catchError(() => of({ data: [] as StorySeries[], pagination: { total: 0, page: 1, limit, totalPages: 0 } }))
-        )
-      )
-    )
-  );
-  isLoadingSeries = computed(() => this._seriesResponse() === undefined);
-  seriesTotal = computed(() => this._seriesResponse()?.pagination.total ?? 0);
-  seriesTotalPages = computed(() => this._seriesResponse()?.pagination.totalPages ?? 1);
-  seriesList = computed(() => this._seriesResponse()?.data ?? []);
-
+  itemToDelete = signal<{ id: string, type: 'book' | 'category', name: string } | null>(null);
+  isDeleting = signal(false);
+  deleteError = signal<string | null>(null);
 
   categoryActiveTab = signal(0);
-
   categoryTranslationsForm = this.fb.group({ translations: this.fb.array([]) });
 
   get categoryTranslations(): FormArray {
@@ -788,14 +639,14 @@ export class StoriesManagementComponent implements OnInit {
     if (tab) this.activeTab.set(tab);
   }
 
-  changeStoriesPage(page: number) {
-    if (page < 1 || page > this.storiesTotalPages()) return;
-    this.storiesPage.set(page);
+  changeBooksPage(page: number) {
+    if (page < 1 || page > this.booksTotalPages()) return;
+    this.booksPage.set(page);
   }
 
-  changeStoriesLimit(limit: number) {
-    this.storiesLimit.set(limit);
-    this.storiesPage.set(1);
+  changeBooksLimit(limit: number) {
+    this.booksLimit.set(limit);
+    this.booksPage.set(1);
   }
 
   changeCategoriesPage(page: number) {
@@ -808,16 +659,6 @@ export class StoriesManagementComponent implements OnInit {
     this.categoriesPage.set(1);
   }
 
-  changeSeriesPage(page: number) {
-    if (page < 1 || page > this.seriesTotalPages()) return;
-    this.seriesPage.set(page);
-  }
-
-  changeSeriesLimit(limit: number) {
-    this.seriesLimit.set(limit);
-    this.seriesPage.set(1);
-  }
-
   getCategoryLabel(categoryId?: number): string {
     if (!categoryId) return 'Uncategorized';
     const cat = this.categoriesLookup().find(c => c.id === categoryId);
@@ -827,10 +668,6 @@ export class StoriesManagementComponent implements OnInit {
   getCategoryName(cat: Category): string {
     return cat.categoryTranslations?.find(t => t.language.id === 1)?.name ||
            cat.categoryTranslations?.[0]?.name || 'Unnamed Category';
-  }
-
-  getCategoryTranslation(cat: Category, langId: number): string {
-    return cat.categoryTranslations?.find(t => t.language.id === langId)?.name || '';
   }
 
   openCategoryModal() {
@@ -947,11 +784,7 @@ export class StoriesManagementComponent implements OnInit {
     }
   }
 
-  isDeleting = signal(false);
-  deleteError = signal<string | null>(null);
-
-  // Delete Logic
-  requestDelete(id: number, type: 'story' | 'category' | 'series', name: string) {
+  requestDelete(id: number, type: 'book' | 'category', name: string) {
     this.itemToDelete.set({ id: id.toString(), type, name });
     this.deleteError.set(null);
     this.showDeleteModal.set(true);
@@ -971,29 +804,23 @@ export class StoriesManagementComponent implements OnInit {
     this.isDeleting.set(true);
     this.deleteError.set(null);
 
-    let request$;
-    if (item.type === 'story') request$ = this.api.deleteStory(id);
-    else if (item.type === 'category') request$ = this.api.deleteCategory(id);
-    else request$ = this.api.deleteStorySeries(id);
+    const request$ = item.type === 'book'
+      ? this.api.deleteBook(id)
+      : this.api.deleteCategory(id);
 
     request$.subscribe({
       next: () => {
-        if (item.type === 'story') {
-          const prevPage = this.data.stories().length === 1 && this.storiesPage() > 1
-            ? this.storiesPage() - 1 : this.storiesPage();
-          if (prevPage !== this.storiesPage()) this.storiesPage.set(prevPage);
-          else this._storyRefresh.update(n => n + 1);
+        if (item.type === 'book') {
+          const prevPage = this.data.books().length === 1 && this.booksPage() > 1
+            ? this.booksPage() - 1 : this.booksPage();
+          if (prevPage !== this.booksPage()) this.booksPage.set(prevPage);
+          else this._bookRefresh.update(n => n + 1);
         } else if (item.type === 'category') {
           this.categoriesLookup.update(cats => cats.filter(c => c.id !== id));
           const prevPage = this.categories().length === 1 && this.categoriesPage() > 1
             ? this.categoriesPage() - 1 : this.categoriesPage();
           if (prevPage !== this.categoriesPage()) this.categoriesPage.set(prevPage);
           else this._catRefresh.update(n => n + 1);
-        } else if (item.type === 'series') {
-          const prevPage = this.seriesList().length === 1 && this.seriesPage() > 1
-            ? this.seriesPage() - 1 : this.seriesPage();
-          if (prevPage !== this.seriesPage()) this.seriesPage.set(prevPage);
-          else this._seriesRefresh.update(n => n + 1);
         }
         this.isDeleting.set(false);
         this.closeDeleteModal();
@@ -1002,11 +829,10 @@ export class StoriesManagementComponent implements OnInit {
         const msg = err.error?.error || `Failed to delete ${item.type}.`;
         const details = err.error?.details;
         this.deleteError.set(details
-          ? `${msg} It is used by ${details.stories ?? 0} story/stories and ${details.profiles ?? 0} profile(s).`
+          ? `${msg} It is used by ${details.books ?? 0} book(s) and ${details.profiles ?? 0} profile(s).`
           : msg);
         this.isDeleting.set(false);
       }
     });
   }
 }
-

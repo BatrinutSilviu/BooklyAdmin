@@ -3,7 +3,7 @@ import { Observable } from 'rxjs';
 
 export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, next: HttpHandlerFn): Observable<HttpEvent<unknown>> => {
   const storage = typeof window !== 'undefined' ? window.localStorage : null;
-  const saved = storage?.getItem('story_admin_auth');
+  const saved = storage?.getItem('bookly_admin_auth');
   
   if (saved) {
     try {

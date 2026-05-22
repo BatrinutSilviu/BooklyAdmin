@@ -34,72 +34,36 @@ export interface Category {
   created_at: string;
   categoryTranslations: CategoryTranslation[];
   _count?: {
-    storyCategories: number;
+    bookCategories: number;
     profileCategories: number;
   };
 }
 
-export interface StoryPage {
+export interface BookPage {
   id: number;
   page_number: number;
   text_content: string;
+  photo_url?: string;
+  audio_url?: string;
 }
 
-export interface StoryTranslation {
+export interface BookTranslation {
   id: number;
   title: string;
   description?: string | null;
   language: Language;
-  storyPages?: StoryPage[];
+  bookPages?: BookPage[];
 }
 
-export interface Story {
+export interface Book {
   id: number;
-  title: string;
   photo_url?: string;
-  audio_url?: string;
+  duration?: number;
   status: boolean;
-  story_series_id?: number;
   category_ids?: number[];
   language?: Language;
-  storyPages?: StoryPage[];
-  storyTranslations?: StoryTranslation[];
-}
-
-export interface Series {
-  id: number;
-  titles: Record<string, string>;
-  descriptions?: Record<string, string>;
-  status: 'Public' | 'Private';
-  contentRating: string;
-  stories: number[];
-}
-
-export interface StorySeriesStory {
-  id: number;
-  story_id: number;
-  story_series_id: number;
-  story: {
-    id: number;
-    photo_url?: string;
-    status: boolean;
-    storyTranslations: { title: string; language: { id: number; name: string; country_code: string } }[];
-  };
-}
-
-export interface StorySeries {
-  id: number;
-  name: string;
-  created_at?: string;
-  storySeriesStories?: StorySeriesStory[];
-}
-
-export interface Playlist {
-  id: number;
-  profile_id: number;
-  name: string;
-  created_at: string;
-  playlistStories?: unknown[];
+  bookPages?: BookPage[];
+  bookTranslations?: BookTranslation[];
 }
 
 export interface UserWithDetails {

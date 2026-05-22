@@ -24,11 +24,11 @@ import { ReactiveFormsModule } from '@angular/forms';
               <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-2">
                   <label for="app-name" class="text-sm font-semibold text-slate-400">Application Name</label>
-                  <input id="app-name" type="text" value="StoryAdmin" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2.5 px-4 text-white outline-none focus:border-primary transition-all">
+                  <input id="app-name" type="text" value="BooklyAdmin" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2.5 px-4 text-white outline-none focus:border-primary transition-all">
                 </div>
                 <div class="space-y-2">
                   <label for="support-email" class="text-sm font-semibold text-slate-400">Support Email</label>
-                  <input id="support-email" type="email" value="support@storyadmin.com" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2.5 px-4 text-white outline-none focus:border-primary transition-all">
+                  <input id="support-email" type="email" value="support@bookly.com" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2.5 px-4 text-white outline-none focus:border-primary transition-all">
                 </div>
               </div>
               <div class="space-y-2">
@@ -107,7 +107,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 })
 export class SettingsComponent {
   notificationPrefs = [
-    { id: 'email_new_story', label: 'Email on New Story', description: 'Get notified when a new story is submitted for review.', enabled: true },
+    { id: 'email_new_book', label: 'Email on New Book', description: 'Get notified when a new book is submitted for review.', enabled: true },
     { id: 'email_user_signup', label: 'User Signups', description: 'Weekly summary of new user registrations.', enabled: false },
     { id: 'push_alerts', label: 'Critical System Alerts', description: 'Real-time push notifications for server issues.', enabled: true }
   ];

@@ -12,11 +12,11 @@ import { MatIconModule } from '@angular/material/icon';
       <!-- Logo Section -->
       <div class="flex flex-col items-center gap-5">
         <div class="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-2xl shadow-primary/40 ring-4 ring-primary/10">
-          <mat-icon class="text-white !text-3xl">auto_stories</mat-icon>
+          <mat-icon class="text-white !text-3xl">menu_book</mat-icon>
         </div>
         <div class="text-center">
-          <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">StoryAdmin</h1>
-          <p class="text-slate-500 dark:text-slate-400 mt-2 font-medium">Manage your narratives with precision</p>
+          <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">BooklyAdmin</h1>
+          <p class="text-slate-500 dark:text-slate-400 mt-2 font-medium">Manage your book library with precision</p>
         </div>
       </div>
 

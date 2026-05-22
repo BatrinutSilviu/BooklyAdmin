@@ -30,14 +30,14 @@ export class AuthService {
       try {
         const storage = typeof window !== 'undefined' ? window.localStorage : null;
         if (storage) {
-          const saved = storage.getItem('story_admin_auth');
+          const saved = storage.getItem('bookly_admin_auth');
           if (saved) {
             const user = JSON.parse(saved);
             if (user.id) {
               this.isAuthenticated.set(true);
               this.currentUser.set(user);
             } else {
-              storage.removeItem('story_admin_auth');
+              storage.removeItem('bookly_admin_auth');
             }
           }
         }
@@ -118,7 +118,7 @@ export class AuthService {
       try {
         const storage = typeof window !== 'undefined' ? window.localStorage : null;
         if (storage) {
-          storage.setItem('story_admin_auth', JSON.stringify(user));
+          storage.setItem('bookly_admin_auth', JSON.stringify(user));
         }
       } catch {
         // Silently fail
@@ -134,7 +134,7 @@ export class AuthService {
       try {
         const storage = typeof window !== 'undefined' ? window.localStorage : null;
         if (storage) {
-          storage.removeItem('story_admin_auth');
+          storage.removeItem('bookly_admin_auth');
         }
       } catch {
         // Silently fail

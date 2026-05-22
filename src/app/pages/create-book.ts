@@ -5,11 +5,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { ApiService } from '../api.service';
 import { DataService } from '../data.service';
-import { Language, Story } from '../models';
+import { Language, Book } from '../models';
 import { concat, of, switchMap, toArray, map } from 'rxjs';
 
 @Component({
-  selector: 'app-create-story',
+  selector: 'app-create-book',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, MatIconModule, RouterLink],
   template: `
@@ -17,16 +17,16 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
       <!-- Header -->
       <div class="flex justify-between items-center">
         <div class="flex items-center gap-4">
-          <button routerLink="/stories" class="w-10 h-10 rounded-xl border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+          <button routerLink="/books" class="w-10 h-10 rounded-xl border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
             <mat-icon>arrow_back</mat-icon>
           </button>
           <div>
-            <h1 class="text-3xl font-bold tracking-tight">{{ editStoryId() ? 'Edit Story' : 'Create New Story' }}</h1>
-            <p class="text-slate-400 mt-1">{{ editStoryId() ? 'Update the story details below.' : 'Fill in the details below to publish a new story.' }}</p>
+            <h1 class="text-3xl font-bold tracking-tight">{{ editBookId() ? 'Edit Book' : 'Create New Book' }}</h1>
+            <p class="text-slate-400 mt-1">{{ editBookId() ? 'Update the book details below.' : 'Fill in the details below to publish a new book.' }}</p>
           </div>
         </div>
         <button (click)="submit()" [disabled]="isSubmitting()" class="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-          {{ isSubmitting() ? (editStoryId() ? 'Saving...' : 'Publishing...') : (editStoryId() ? 'Save Changes' : 'Publish Story') }}
+          {{ isSubmitting() ? (editBookId() ? 'Saving...' : 'Publishing...') : (editBookId() ? 'Save Changes' : 'Publish Book') }}
         </button>
       </div>
 
@@ -34,13 +34,12 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
         <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-sm">{{ error() }}</div>
       }
 
-      <form [formGroup]="storyForm" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <form [formGroup]="bookForm" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Main column -->
         <div class="lg:col-span-2 space-y-6">
 
-          <!-- Translation tabs: language / title / description -->
+          <!-- Translation tabs -->
           <section class="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden">
-            <!-- Tab bar -->
             <div class="flex items-center gap-1 border-b border-slate-800 px-4 overflow-x-auto">
               @for (tCtrl of translations.controls; track $index; let ti = $index) {
                 <button type="button" (click)="activeTab.set(ti)"
@@ -66,7 +65,6 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
               </button>
             </div>
 
-            <!-- Per-translation fields (language, title, description) -->
             <div formArrayName="translations">
               @for (tCtrl of translations.controls; track $index; let ti = $index) {
                 <div [formGroupName]="ti" [hidden]="activeTab() !== ti" class="p-8 space-y-5">
@@ -81,28 +79,28 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
                     </select>
                   </div>
                   <div class="space-y-2">
-                    <label class="text-sm font-bold text-slate-400 uppercase tracking-wider">Story Title</label>
+                    <label class="text-sm font-bold text-slate-400 uppercase tracking-wider">Book Title</label>
                     <input formControlName="title"
                       class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                      placeholder="Enter story title">
+                      placeholder="Enter book title">
                   </div>
                   <div class="space-y-2">
                     <label class="text-sm font-bold text-slate-400 uppercase tracking-wider">Description</label>
                     <textarea formControlName="description" rows="3"
                       class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                      placeholder="Enter story description"></textarea>
+                      placeholder="Enter book description"></textarea>
                   </div>
                 </div>
               }
             </div>
           </section>
 
-          <!-- Pages section — shared photos, per-language text -->
+          <!-- Pages section -->
           <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-8 space-y-6">
             <div class="flex justify-between items-center">
               <h3 class="text-xl font-bold flex items-center gap-2">
-                <mat-icon class="text-primary">auto_stories</mat-icon>
-                Story Pages
+                <mat-icon class="text-primary">menu_book</mat-icon>
+                Book Pages
               </h3>
               <button (click)="addPage()" type="button"
                 class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
@@ -140,7 +138,7 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
                       </label>
                     </div>
 
-                    <!-- Per-language text (bound to active translation) -->
+                    <!-- Per-language text -->
                     <div class="md:col-span-2 space-y-2">
                       <span class="text-xs text-slate-500">Text <span class="text-slate-600">(for {{ getTabLabel(activeTab()) }})</span></span>
                       <textarea
@@ -180,15 +178,23 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
             <div class="flex items-center justify-between">
               <div>
                 <h3 class="font-bold">Status</h3>
-                <p class="text-xs text-slate-500 mt-0.5">{{ storyStatus() ? 'Active — visible to users' : 'Inactive — hidden from users' }}</p>
+                <p class="text-xs text-slate-500 mt-0.5">{{ bookStatus() ? 'Active — visible to users' : 'Inactive — hidden from users' }}</p>
               </div>
-              <button type="button" (click)="storyStatus.update(v => !v)"
+              <button type="button" (click)="bookStatus.update(v => !v)"
                 class="relative w-12 h-6 rounded-full transition-colors flex-shrink-0"
-                [class]="storyStatus() ? 'bg-primary' : 'bg-slate-700'">
+                [class]="bookStatus() ? 'bg-primary' : 'bg-slate-700'">
                 <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
-                  [class.translate-x-6]="storyStatus()"></span>
+                  [class.translate-x-6]="bookStatus()"></span>
               </button>
             </div>
+          </section>
+
+          <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4">
+            <h3 class="font-bold">Duration (minutes)</h3>
+            <input type="number" min="0" [value]="bookDuration()"
+              (input)="bookDuration.set(+$any($event.target).value || null)"
+              class="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-2.5 px-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              placeholder="e.g. 15">
           </section>
 
           <section class="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 space-y-4">
@@ -213,7 +219,7 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CreateStoryComponent implements OnInit {
+export class CreateBookComponent implements OnInit {
   private fb = inject(FormBuilder);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
@@ -224,19 +230,19 @@ export class CreateStoryComponent implements OnInit {
   isSubmitting = signal(false);
   error = signal<string | null>(null);
   coverPhotoPreview = signal<string | null>(null);
-  storyStatus = signal(true);
-  // Shared across all translations — one entry per page
+  bookStatus = signal(true);
+  bookDuration = signal<number | null>(null);
   pagePhotoFiles = signal<(File | null)[]>([]);
   pagePhotoPreviews = signal<(string | null)[]>([]);
-  editStoryId = signal<number | null>(null);
+  editBookId = signal<number | null>(null);
   selectedCategoryIds = signal<number[]>([]);
   activeTab = signal(0);
 
   private coverPhotoFile: File | null = null;
 
-  storyForm = this.fb.group({ translations: this.fb.array([]) });
+  bookForm = this.fb.group({ translations: this.fb.array([]) });
 
-  get translations(): FormArray { return this.storyForm.get('translations') as FormArray; }
+  get translations(): FormArray { return this.bookForm.get('translations') as FormArray; }
 
   getPageTexts(tIdx: number): FormArray {
     return this.translations.at(tIdx).get('pageTexts') as FormArray;
@@ -285,7 +291,6 @@ export class CreateStoryComponent implements OnInit {
     });
   }
 
-  // Add a page to ALL translations
   addPage() {
     for (let i = 0; i < this.translations.length; i++) {
       this.getPageTexts(i).push(this.newPageTextGroup());
@@ -294,7 +299,6 @@ export class CreateStoryComponent implements OnInit {
     this.pagePhotoPreviews.update(a => [...a, null]);
   }
 
-  // Remove a page from ALL translations
   removePage(pIdx: number) {
     for (let i = 0; i < this.translations.length; i++) {
       this.getPageTexts(i).removeAt(pIdx);
@@ -337,36 +341,36 @@ export class CreateStoryComponent implements OnInit {
 
   ngOnInit() {
     this.api.getLanguages().subscribe(langs => this.languages.set(langs));
+    this.api.getCategories(1, 100).subscribe(res => this.data.categories.set(res.data));
 
     const idParam = this.route.snapshot.paramMap.get('id');
     if (idParam) {
-      const storyId = parseInt(idParam, 10);
-      this.editStoryId.set(storyId);
-      this.prefillForm(storyId);
+      const bookId = parseInt(idParam, 10);
+      this.editBookId.set(bookId);
+      this.prefillForm(bookId);
     } else {
       this.translations.push(this.newTranslationGroup(0));
     }
   }
 
-  private prefillForm(storyId: number) {
-    const story = this.data.getStoryById(storyId);
-    if (!story) { this.translations.push(this.newTranslationGroup(0)); return; }
+  private prefillForm(bookId: number) {
+    const book = this.data.getBookById(bookId);
+    if (!book) { this.translations.push(this.newTranslationGroup(0)); return; }
 
-    if (story.photo_url) this.coverPhotoPreview.set(story.photo_url);
-    this.storyStatus.set(story.status ?? true);
-    this.selectedCategoryIds.set(story.category_ids ?? []);
+    if (book.photo_url) this.coverPhotoPreview.set(book.photo_url);
+    this.bookStatus.set(book.status ?? true);
+    this.bookDuration.set(book.duration ?? null);
+    this.selectedCategoryIds.set(book.category_ids ?? []);
 
-    const tls = story.storyTranslations ?? [];
+    const tls = book.bookTranslations ?? [];
     if (tls.length === 0) { this.translations.push(this.newTranslationGroup(0)); return; }
 
-    // Page photos come from the first translation (shared)
-    const firstPages: any[] = (tls[0] as any).storyPages ?? [];
+    const firstPages: any[] = (tls[0] as any).bookPages ?? [];
     this.pagePhotoFiles.set(firstPages.map(() => null));
     this.pagePhotoPreviews.set(firstPages.map((p: any) => p.photo_url ?? null));
 
     tls.forEach(t => {
-      const rawPages: any[] = (t as any).storyPages ?? [];
-      // Build pageTexts matching the page count from the first translation
+      const rawPages: any[] = (t as any).bookPages ?? [];
       const pageTexts = this.fb.array(
         firstPages.map((_, i) => this.fb.group({
           text_content: [rawPages[i]?.text_content ?? '', Validators.required]
@@ -389,10 +393,12 @@ export class CreateStoryComponent implements OnInit {
     if (t.description) fd.append('description', t.description);
 
     if (isFirst) {
-      fd.append('status', String(this.storyStatus()));
+      fd.append('status', String(this.bookStatus()));
+      const duration = this.bookDuration();
+      if (duration !== null) fd.append('duration', String(duration));
       const catIds = this.selectedCategoryIds();
       if (catIds.length > 0) fd.append('category_ids', JSON.stringify(catIds));
-      if (this.coverPhotoFile) fd.append('story_photo', this.coverPhotoFile);
+      if (this.coverPhotoFile) fd.append('book_photo', this.coverPhotoFile);
     }
 
     const pagesData = (t.pageTexts as { text_content: string }[]).map((p, i) => ({
@@ -401,7 +407,6 @@ export class CreateStoryComponent implements OnInit {
     }));
     fd.append('pages', JSON.stringify(pagesData));
 
-    // Same page photos for every translation
     this.pagePhotoFiles().forEach((file, i) => {
       if (file) fd.append(`page_photo_${i + 1}`, file);
     });
@@ -410,49 +415,49 @@ export class CreateStoryComponent implements OnInit {
   }
 
   submit() {
-    if (this.storyForm.invalid || this.isSubmitting()) return;
+    if (this.bookForm.invalid || this.isSubmitting()) return;
     this.isSubmitting.set(true);
     this.error.set(null);
 
-    const editId = this.editStoryId();
+    const editId = this.editBookId();
     const count = this.translations.length;
 
     if (editId) {
       const requests$ = Array.from({ length: count }, (_, i) =>
-        this.api.updateStory(editId, this.buildFormData(i, i === 0))
+        this.api.updateBook(editId, this.buildFormData(i, i === 0))
       );
       concat(...requests$).pipe(toArray()).subscribe({
         next: (results) => {
           const last = results[results.length - 1] as any;
-          this.data.updateStory({
+          this.data.updateBook({
             ...last,
-            category_ids: (last.storyCategories ?? []).map((sc: any) => sc.category?.id ?? sc.category_id),
-            storyTranslations: (last.storyTranslations ?? []).map((t: any) => ({
+            category_ids: (last.bookCategories ?? []).map((bc: any) => bc.category?.id ?? bc.category_id),
+            bookTranslations: (last.bookTranslations ?? []).map((t: any) => ({
               id: t.id, title: t.title, description: t.description,
-              language: t.language, storyPages: t.storyPages ?? [],
+              language: t.language, bookPages: t.bookPages ?? [],
             })),
-          } as Story);
-          this.router.navigate(['/stories']);
+          } as Book);
+          this.router.navigate(['/books']);
         },
         error: (err) => {
-          this.error.set(err.error?.error || 'Failed to update story.');
+          this.error.set(err.error?.error || 'Failed to update book.');
           this.isSubmitting.set(false);
         }
       });
     } else {
-      this.api.createStory(this.buildFormData(0, true)).pipe(
+      this.api.createBook(this.buildFormData(0, true)).pipe(
         switchMap(result => {
-          const storyId = (result as any).id;
+          const bookId = (result as any).id;
           if (count === 1) return of(result);
           const rest$ = Array.from({ length: count - 1 }, (_, i) =>
-            this.api.updateStory(storyId, this.buildFormData(i + 1, false))
+            this.api.updateBook(bookId, this.buildFormData(i + 1, false))
           );
           return concat(...rest$).pipe(toArray(), map(() => result));
         })
       ).subscribe({
-        next: () => this.router.navigate(['/stories']),
+        next: () => this.router.navigate(['/books']),
         error: (err) => {
-          this.error.set(err.error?.error || 'Failed to create story.');
+          this.error.set(err.error?.error || 'Failed to create book.');
           this.isSubmitting.set(false);
         }
       });

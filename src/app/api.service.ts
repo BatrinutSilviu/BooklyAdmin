@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Category, Language, Profile, AuthResponse, UserWithDetails, PaginatedResponse, StorySeries } from './models';
+import { Book, Category, Language, Profile, AuthResponse, UserWithDetails, PaginatedResponse } from './models';
 import { environment } from '../environments/environment';
 
 @Injectable({
@@ -67,56 +67,33 @@ export class ApiService {
     return this.http.delete(`${this.baseUrl}/categories/${id}`);
   }
 
-  // Stories
-  getAllStories(page = 1, limit = 20, filters?: { name?: string; languageId?: number; categoryId?: number }): Observable<PaginatedResponse<unknown>> {
+  // Books
+  getAllBooks(page = 1, limit = 20, filters?: { name?: string; languageId?: number; categoryId?: number }): Observable<PaginatedResponse<unknown>> {
     let params = new HttpParams().set('page', page).set('limit', limit);
     if (filters?.name) params = params.set('name', filters.name);
     if (filters?.languageId) params = params.set('language_id', filters.languageId);
     if (filters?.categoryId) params = params.set('category_id', filters.categoryId);
-    return this.http.get<PaginatedResponse<unknown>>(`${this.baseUrl}/stories`, { params });
+    return this.http.get<PaginatedResponse<unknown>>(`${this.baseUrl}/books`, { params });
   }
 
-  getStoriesByCategory(categoryId: number, languageId: number): Observable<unknown[]> {
-    return this.http.get<unknown[]>(`${this.baseUrl}/stories/categories/${categoryId}/languages/${languageId}`);
+  getBooksByCategory(categoryId: number, languageId: number): Observable<unknown[]> {
+    return this.http.get<unknown[]>(`${this.baseUrl}/books/categories/${categoryId}/languages/${languageId}`);
   }
 
-  getStory(id: number, languageId: number, pages = 5): Observable<unknown> {
-    return this.http.get<unknown>(`${this.baseUrl}/stories/${id}/languages/${languageId}?pages=${pages}`);
+  getBook(id: number, languageId: number): Observable<unknown> {
+    return this.http.get<unknown>(`${this.baseUrl}/books/${id}/languages/${languageId}`);
   }
 
-  createStory(formData: FormData): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/stories`, formData);
+  createBook(formData: FormData): Observable<Book> {
+    return this.http.post<Book>(`${this.baseUrl}/books`, formData);
   }
 
-  updateStory(id: number, formData: FormData): Observable<unknown> {
-    return this.http.put(`${this.baseUrl}/stories/${id}`, formData);
+  updateBook(id: number, formData: FormData): Observable<Book> {
+    return this.http.put<Book>(`${this.baseUrl}/books/${id}`, formData);
   }
 
-  deleteStory(id: number): Observable<unknown> {
-    return this.http.delete(`${this.baseUrl}/stories/${id}`);
-  }
-
-  // Story Series
-  getStorySeries(page = 1, limit = 20, filters?: { name?: string }): Observable<PaginatedResponse<StorySeries>> {
-    let params = new HttpParams().set('page', page).set('limit', limit);
-    if (filters?.name) params = params.set('name', filters.name);
-    return this.http.get<PaginatedResponse<StorySeries>>(`${this.baseUrl}/story-series`, { params });
-  }
-
-  getStorySeriesById(id: number): Observable<StorySeries> {
-    return this.http.get<StorySeries>(`${this.baseUrl}/story-series/${id}`);
-  }
-
-  createStorySeries(body: { name: string; story_ids?: number[] }): Observable<StorySeries> {
-    return this.http.post<StorySeries>(`${this.baseUrl}/story-series`, body);
-  }
-
-  updateStorySeries(id: number, body: { name?: string; story_ids?: number[] }): Observable<StorySeries> {
-    return this.http.put<StorySeries>(`${this.baseUrl}/story-series/${id}`, body);
-  }
-
-  deleteStorySeries(id: number): Observable<unknown> {
-    return this.http.delete(`${this.baseUrl}/story-series/${id}`);
+  deleteBook(id: number): Observable<unknown> {
+    return this.http.delete(`${this.baseUrl}/books/${id}`);
   }
 
   // Languages

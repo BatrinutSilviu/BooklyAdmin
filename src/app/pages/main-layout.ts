@@ -14,9 +14,9 @@ import { MatIconModule } from '@angular/material/icon';
       <aside class="w-64 border-r border-slate-800 flex flex-col bg-bg-dark/50 backdrop-blur-xl">
         <div class="p-6 flex items-center gap-3">
           <div class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-            <mat-icon class="text-white">auto_stories</mat-icon>
+            <mat-icon class="text-white">menu_book</mat-icon>
           </div>
-          <span class="text-xl font-bold tracking-tight">StoryAdmin</span>
+          <span class="text-xl font-bold tracking-tight">BooklyAdmin</span>
         </div>
 
         <nav class="flex-1 px-4 py-4 space-y-1">
@@ -24,9 +24,9 @@ import { MatIconModule } from '@angular/material/icon';
             <mat-icon class="group-hover:scale-110 transition-transform">dashboard</mat-icon>
             <span class="font-medium">Dashboard</span>
           </a>
-          <a routerLink="/stories" routerLinkActive="bg-primary text-white" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all group">
+          <a routerLink="/books" routerLinkActive="bg-primary text-white" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all group">
             <mat-icon class="group-hover:scale-110 transition-transform">menu_book</mat-icon>
-            <span class="font-medium">Stories</span>
+            <span class="font-medium">Books</span>
           </a>
           <a routerLink="/users" routerLinkActive="bg-primary text-white" class="flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all group">
             <mat-icon class="group-hover:scale-110 transition-transform">group</mat-icon>
@@ -65,7 +65,7 @@ import { MatIconModule } from '@angular/material/icon';
               <mat-icon class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors">search</mat-icon>
               <input 
                 type="text" 
-                placeholder="Search stories, users, or reports..." 
+                placeholder="Search books, users, or reports..."
                 class="w-full bg-slate-900/50 border border-slate-800 rounded-xl py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>

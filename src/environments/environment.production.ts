@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://story-teller-batrinutsilvius-projects.vercel.app/api'
+  apiUrl: 'https://bookly.vercel.app/api'
 };
