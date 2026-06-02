@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, OnInit, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, FormGroup, FormControl, Validators, FormArray } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -31,7 +31,11 @@ import { concat, of, switchMap, toArray, map } from 'rxjs';
       </div>
 
       @if (error()) {
-        <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-sm">{{ error() }}</div>
+        <div class="p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-sm space-y-1">
+          @for (line of errorLines(); track $index) {
+            <p>{{ line }}</p>
+          }
+        </div>
       }
 
       <form [formGroup]="bookForm" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -238,7 +242,30 @@ export class CreateBookComponent implements OnInit {
   selectedCategoryIds = signal<number[]>([]);
   activeTab = signal(0);
 
+  errorLines = computed(() => {
+    const e = this.error();
+    return e ? e.split('\n').filter(Boolean) : [];
+  });
+
   private coverPhotoFile: File | null = null;
+
+  private extractError(err: unknown): string {
+    const e = err as any;
+    const status = e?.status ? `[HTTP ${e.status}]` : '';
+    const body = e?.error;
+
+    if (!body && e?.message) return `${status} ${e.message}`.trim();
+    if (!body) return `${status} Unknown error`.trim();
+
+    const msgs: string[] = [];
+    if (typeof body.message === 'string') msgs.push(body.message);
+    if (Array.isArray(body.message)) msgs.push(...body.message);
+    if (typeof body.error === 'string' && !msgs.includes(body.error)) msgs.push(body.error);
+    if (Array.isArray(body.errors)) msgs.push(...body.errors.map((e: any) => (typeof e === 'string' ? e : JSON.stringify(e))));
+
+    const text = msgs.length ? msgs.join('\n') : (typeof body === 'string' ? body : JSON.stringify(body));
+    return status ? `${status} ${text}` : text;
+  }
 
   bookForm = this.fb.group({ translations: this.fb.array([]) });
 
@@ -440,7 +467,7 @@ export class CreateBookComponent implements OnInit {
           this.router.navigate(['/books']);
         },
         error: (err) => {
-          this.error.set(err.error?.error || 'Failed to update book.');
+          this.error.set(this.extractError(err));
           this.isSubmitting.set(false);
         }
       });
@@ -457,7 +484,7 @@ export class CreateBookComponent implements OnInit {
       ).subscribe({
         next: () => this.router.navigate(['/books']),
         error: (err) => {
-          this.error.set(err.error?.error || 'Failed to create book.');
+          this.error.set(this.extractError(err));
           this.isSubmitting.set(false);
         }
       });
