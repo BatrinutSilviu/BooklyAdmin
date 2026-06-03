@@ -754,7 +754,7 @@ export class BooksManagementComponent implements OnInit {
           this.closeCategoryModal();
         },
         error: (err) => {
-          this.categoryError.set(err.error?.error || 'Failed to save category.');
+          this.categoryError.set(ApiService.extractError(err));
           this.isSavingCategory.set(false);
         }
       });
@@ -777,7 +777,7 @@ export class BooksManagementComponent implements OnInit {
           this.closeCategoryModal();
         },
         error: (err) => {
-          this.categoryError.set(err.error?.error || 'Failed to create category.');
+          this.categoryError.set(ApiService.extractError(err));
           this.isSavingCategory.set(false);
         }
       });
@@ -826,8 +826,8 @@ export class BooksManagementComponent implements OnInit {
         this.closeDeleteModal();
       },
       error: (err) => {
-        const msg = err.error?.error || `Failed to delete ${item.type}.`;
         const details = err.error?.details;
+        const msg = ApiService.extractError(err);
         this.deleteError.set(details
           ? `${msg} It is used by ${details.books ?? 0} book(s) and ${details.profiles ?? 0} profile(s).`
           : msg);

@@ -96,6 +96,24 @@ export class ApiService {
     return this.http.delete(`${this.baseUrl}/books/${id}`);
   }
 
+  static extractError(err: unknown): string {
+    const e = err as any;
+    const status = e?.status ? `[HTTP ${e.status}]` : '';
+    const body = e?.error;
+
+    if (!body && e?.message) return `${status} ${e.message}`.trim();
+    if (!body) return `${status} Unknown error`.trim();
+
+    const msgs: string[] = [];
+    if (typeof body.message === 'string') msgs.push(body.message);
+    if (Array.isArray(body.message)) msgs.push(...body.message);
+    if (typeof body.error === 'string' && !msgs.includes(body.error)) msgs.push(body.error);
+    if (Array.isArray(body.errors)) msgs.push(...body.errors.map((e: any) => (typeof e === 'string' ? e : JSON.stringify(e))));
+
+    const text = msgs.length ? msgs.join('\n') : (typeof body === 'string' ? body : JSON.stringify(body));
+    return status ? `${status} ${text}` : text;
+  }
+
   // Languages
   getLanguages(): Observable<Language[]> {
     return this.http.get<Language[]>(`${this.baseUrl}/languages`);
