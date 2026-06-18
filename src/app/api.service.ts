@@ -101,6 +101,7 @@ export class ApiService {
     const status = e?.status ? `[HTTP ${e.status}]` : '';
     const body = e?.error;
 
+    if (body instanceof Event) return 'Network error — the server could not be reached';
     if (!body && e?.message) return `${status} ${e.message}`.trim();
     if (!body) return `${status} Unknown error`.trim();
 
