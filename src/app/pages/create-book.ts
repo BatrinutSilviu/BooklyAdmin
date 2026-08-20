@@ -4,7 +4,7 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, FormControl, Validators, F
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { ApiService } from '../api.service';
-import { DataService } from '../data.service';
+import { DataService, mapRawBook } from '../data.service';
 import { Language, Book } from '../models';
 import { concat, of, switchMap, toArray, map } from 'rxjs';
 
@@ -360,16 +360,27 @@ export class CreateBookComponent implements OnInit {
     if (idParam) {
       const bookId = parseInt(idParam, 10);
       this.editBookId.set(bookId);
-      this.prefillForm(bookId);
+      this.loadBookForEdit(bookId);
     } else {
       this.translations.push(this.newTranslationGroup(0));
     }
   }
 
-  private prefillForm(bookId: number) {
-    const book = this.data.getBookById(bookId);
-    if (!book) { this.translations.push(this.newTranslationGroup(0)); return; }
+  private loadBookForEdit(bookId: number) {
+    const cached = this.data.getBookById(bookId);
+    if (cached) { this.prefillForm(cached); return; }
 
+    // Not in the shared in-memory cache (e.g. a hard refresh on this page) — fetch it directly.
+    this.api.getBookDetail(bookId).subscribe({
+      next: raw => this.prefillForm(mapRawBook(raw)),
+      error: err => {
+        this.error.set(this.extractError(err));
+        this.translations.push(this.newTranslationGroup(0));
+      }
+    });
+  }
+
+  private prefillForm(book: Book) {
     if (book.photo_url) this.coverPhotoPreview.set(book.photo_url);
     this.bookStatus.set(book.status ?? true);
     this.bookDuration.set(book.duration ?? null);

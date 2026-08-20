@@ -84,6 +84,10 @@ export class ApiService {
     return this.http.get<unknown>(`${this.baseUrl}/books/${id}/languages/${languageId}`);
   }
 
+  getBookDetail(id: number): Observable<unknown> {
+    return this.http.get<unknown>(`${this.baseUrl}/books/${id}`);
+  }
+
   createBook(formData: FormData): Observable<Book> {
     return this.http.post<Book>(`${this.baseUrl}/books`, formData);
   }

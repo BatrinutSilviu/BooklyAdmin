@@ -2,6 +2,22 @@ import { Injectable, signal, inject } from '@angular/core';
 import { User, Book, Category } from './models';
 import { ApiService } from './api.service';
 
+export function mapRawBook(book: any): Book {
+  const translations = (book.bookTranslations ?? []).map((t: any) => ({
+    id: t.id, title: t.title, description: t.description,
+    language: t.language, bookPages: t.bookPages ?? [],
+  }));
+  const categoryIds: number[] = (book.bookCategories ?? []).map((bc: any) => bc.category?.id ?? bc.category_id);
+  return {
+    id: book.id,
+    photo_url: book.photo_url,
+    duration: book.duration,
+    status: book.status,
+    category_ids: categoryIds.filter(Boolean),
+    bookTranslations: translations,
+  } as Book;
+}
+
 @Injectable({
   providedIn: 'root'
 })

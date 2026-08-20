@@ -1,12 +1,12 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed, effect, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { toSignal, toObservable } from '@angular/core/rxjs-interop';
-import { DataService } from '../data.service';
+import { DataService, mapRawBook } from '../data.service';
 import { ApiService } from '../api.service';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, FormArray, Validators } from '@angular/forms';
-import { Book, Category, BookTranslation, Language } from '../models';
+import { Book, Category, Language } from '../models';
 import { catchError, concat, debounceTime, of, switchMap, toArray, map } from 'rxjs';
 
 @Component({
@@ -530,21 +530,7 @@ export class BooksManagementComponent implements OnInit {
   private _syncBooks = effect(() => {
     const res = this._bookRaw();
     if (!res) return;
-    const mapped: Book[] = (res.data as any[]).map((book: any) => {
-      const translations: BookTranslation[] = (book.bookTranslations ?? []).map((t: any) => ({
-        id: t.id, title: t.title, description: t.description,
-        language: t.language, bookPages: t.bookPages ?? [],
-      }));
-      const categoryIds: number[] = (book.bookCategories ?? []).map((bc: any) => bc.category?.id ?? bc.category_id);
-      return {
-        id: book.id,
-        photo_url: book.photo_url,
-        duration: book.duration,
-        status: book.status,
-        category_ids: categoryIds.filter(Boolean),
-        bookTranslations: translations,
-      } as Book;
-    });
+    const mapped: Book[] = (res.data as any[]).map(mapRawBook);
     this.data.books.set(mapped);
   }, { allowSignalWrites: true });
 
