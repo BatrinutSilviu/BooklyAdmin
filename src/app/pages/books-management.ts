@@ -759,14 +759,29 @@ export class BooksManagementComponent implements OnInit {
         }
       });
     } else {
-      this.api.createCategory(buildFormData(0, true)).pipe(
-        switchMap((result) => {
-          const categoryId = (result as any).id;
-          if (count === 1) return of(result);
-          const rest$ = Array.from({ length: count - 1 }, (_, i) =>
-            this.api.updateCategory(categoryId, buildFormData(i + 1, false))
-          );
-          return concat(...rest$).pipe(toArray(), map(() => result));
+      // POST /categories expects a `categories` field holding a JSON array of
+      // { name, language_id }, plus one `photo` file per array item — not flat fields.
+      const first = this.categoryTranslations.at(0).value;
+      const createFd = new FormData();
+      createFd.append('categories', JSON.stringify([
+        { name: first.name, language_id: Number(first.language_id) }
+      ]));
+      if (this.categoryPhotoFile) createFd.append('photo', this.categoryPhotoFile);
+
+      this.api.createCategory(createFd).pipe(
+        map((result) => (Array.isArray(result) ? result[0] : result) as Category),
+        switchMap((created) => {
+          // status isn't accepted on create, so set it via a follow-up PUT.
+          // Extra language tabs (beyond the first) are added the same way.
+          const followUps = Array.from({ length: count - 1 }, (_, i) => buildFormData(i + 1, false));
+          if (followUps.length === 0) {
+            const statusFd = new FormData();
+            statusFd.append('status', String(this.categoryStatus()));
+            return this.api.updateCategory(created.id, statusFd);
+          }
+          followUps[0].append('status', String(this.categoryStatus()));
+          const requests$ = followUps.map(fd => this.api.updateCategory(created.id, fd));
+          return concat(...requests$).pipe(toArray(), map(results => results[results.length - 1]));
         })
       ).subscribe({
         next: (saved) => {
